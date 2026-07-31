@@ -425,6 +425,7 @@ Why each technology was chosen over its main alternatives.
 | **Express / Fastify** | Unopinionated — you get a router and nothing else. Fine for small services, but you end up rebuilding the structure NestJS gives you for free (DI, modules, validation, interceptors). For a codebase meant to look production-ready, NestJS's conventions are an asset. |
 | **Django (Python)** | Strong ORM and admin out of the box, but Python is a third language on the stack (TypeScript frontend + Python backend). NestJS keeps the stack TypeScript end-to-end. |
 | **Spring Boot (Java)** | Mature and production-proven, but significantly more boilerplate and a heavier deployment footprint. Overkill for this scope. |
+| **ASP.NET Core (C#)** | Technically strong — compiled, fast, excellent type system, first-class PostgreSQL support via Npgsql and Entity Framework Core. A legitimate production choice, particularly in enterprise or Microsoft/Azure environments. Ruled out for two reasons: (1) C# is a second language on the stack — the frontend is TypeScript, and NestJS allows sharing DTOs and interfaces across backend and frontend, reducing duplication; (2) the submission deadline favours less ceremony. The hardest problem (concurrent booking safety) lives in PostgreSQL either way, so .NET offers no correctness advantage here. |
 
 **Chosen: NestJS** — opinionated structure, TypeScript end-to-end, fast to build, widely used in production.
 
