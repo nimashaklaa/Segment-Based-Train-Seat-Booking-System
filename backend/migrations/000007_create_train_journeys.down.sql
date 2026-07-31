@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS train_journeys;
