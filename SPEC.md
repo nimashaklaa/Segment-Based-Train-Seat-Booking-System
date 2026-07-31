@@ -403,8 +403,11 @@ All endpoints return JSON. Errors follow `{ "error": "message", "code": "ERROR_C
 
 | Layer | Choice | Reason |
 |---|---|---|
-| Backend | NestJS + TypeScript | Opinionated structure, fast to build, shared language with frontend |
-| ORM | Prisma | Type-safe, clean migration story, good PostgreSQL support |
+| Backend | Go | Compiled, fast, low memory footprint, excellent pgx + sqlc toolchain |
+| Router | Chi | Lightweight, idiomatic Go, no unnecessary abstractions |
+| DB driver | pgx | Best-in-class PostgreSQL driver for Go |
+| Query layer | sqlc | Generates type-safe Go from raw SQL — critical for overlap queries |
+| Migrations | golang-migrate | Simple, file-based SQL migrations |
 | Database | PostgreSQL | EXCLUDE constraints, GIST indexes, strong transaction support |
 | Frontend | React + TypeScript + Vite | Component model suits seat map; good DX |
 | Styling | Tailwind CSS | Utility-first, fast to build with |
@@ -417,30 +420,29 @@ All endpoints return JSON. Errors follow `{ "error": "message", "code": "ERROR_C
 
 Why each technology was chosen over its main alternatives.
 
-### Backend Framework: NestJS vs alternatives
+### Backend Framework: Go vs alternatives
 
 | Alternative | Why not chosen |
 |---|---|
-| **Go (Chi + sqlc)** | Excellent for high-throughput production services, but slower to build with. The concurrency advantage doesn't apply here — correctness is handled by PostgreSQL's EXCLUSION constraint, not the language runtime. NestJS reaches the same correctness with less code for this use case. |
-| **Express / Fastify** | Unopinionated — you get a router and nothing else. Fine for small services, but you end up rebuilding the structure NestJS gives you for free (DI, modules, validation, interceptors). For a codebase meant to look production-ready, NestJS's conventions are an asset. |
-| **Django (Python)** | Strong ORM and admin out of the box, but Python is a third language on the stack (TypeScript frontend + Python backend). NestJS keeps the stack TypeScript end-to-end. |
-| **Spring Boot (Java)** | Mature and production-proven, but significantly more boilerplate and a heavier deployment footprint. Overkill for this scope. |
-| **ASP.NET Core (C#)** | Technically strong — compiled, fast, excellent type system, first-class PostgreSQL support via Npgsql and Entity Framework Core. A legitimate production choice, particularly in enterprise or Microsoft/Azure environments. Ruled out for two reasons: (1) C# is a second language on the stack — the frontend is TypeScript, and NestJS allows sharing DTOs and interfaces across backend and frontend, reducing duplication; (2) the submission deadline favours less ceremony. The hardest problem (concurrent booking safety) lives in PostgreSQL either way, so .NET offers no correctness advantage here. |
+| **NestJS (TypeScript)** | Faster to scaffold, TypeScript end-to-end with the frontend. But Node.js is heavier at runtime and the correctness advantage of Go's type system and compiled binary outweighs the shared-language benefit here. |
+| **Express / Fastify** | Node.js with even less structure than NestJS. Same runtime drawbacks without the organisational benefits. |
+| **Django (Python)** | Strong admin and ORM out of the box, but a third language on the stack and slower runtime. |
+| **Spring Boot (Java)** | Mature and production-proven, but significantly more boilerplate and a heavier JVM footprint. |
+| **ASP.NET Core (C#)** | Technically strong — compiled, fast, excellent PostgreSQL support. A legitimate alternative, but larger ecosystem overhead and less ergonomic for a small, focused API. Go produces a smaller binary with simpler deployment. |
 
-**Chosen: NestJS** — opinionated structure, TypeScript end-to-end, fast to build, widely used in production.
+**Chosen: Go** — compiled binary, low memory footprint, simple deployment, excellent pgx + sqlc toolchain for type-safe database access.
 
 ---
 
-### ORM: Prisma vs alternatives
+### Query Layer: sqlc vs alternatives
 
 | Alternative | Why not chosen |
 |---|---|
-| **TypeORM** | The most common NestJS ORM, but has a history of bugs with complex queries and its decorator-heavy API can obscure what SQL is actually being run. Prisma's generated client is more predictable. |
-| **Drizzle** | Newer, closer to raw SQL, excellent type safety. A strong contender — but Prisma's migration tooling (`prisma migrate`) is more mature and the ecosystem is larger for onboarding. |
-| **Sequelize** | Older, less type-safe, not idiomatic with TypeScript. Ruled out early. |
-| **Raw SQL (pg / pgx)** | Maximum control, but we lose migrations, schema management, and type safety. The overlap query is the only truly custom SQL we need — Prisma handles everything else cleanly, and raw queries can still be run via `prisma.$queryRaw` when needed. |
+| **GORM** | Popular Go ORM, but hides the SQL behind an abstraction that makes the critical overlap query harder to express and audit. With sqlc you write the exact SQL you intend. |
+| **sqlx** | Useful helper library but no code generation — you still write boilerplate scan code manually. sqlc generates it. |
+| **Raw database/sql** | Maximum control but significant boilerplate for scanning rows. sqlc gives the same control with generated type-safe functions. |
 
-**Chosen: Prisma** — best migration story, strong TypeScript integration, readable schema definition.
+**Chosen: sqlc** — write exact SQL (critical for the overlap query), get generated type-safe Go functions, zero runtime reflection.
 
 ---
 

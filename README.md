@@ -99,16 +99,20 @@ Stations, coaches, seats per coach, and fare rate are all seeded from configurat
 
 | Decision | Chosen | Alternatives considered |
 |---|---|---|
-| Backend | NestJS (TypeScript) | Go, ASP.NET Core, Django, Spring Boot |
-| ORM | Prisma | TypeORM, Drizzle, raw SQL |
+| Backend | Go | NestJS, ASP.NET Core, Django, Spring Boot |
+| Router | Chi | Gin, Fiber, stdlib net/http |
+| Query layer | sqlc | GORM, sqlx, raw database/sql |
+| Migrations | golang-migrate | Atlas, manual SQL |
 | Database | PostgreSQL | MySQL (no EXCLUSION constraints), MongoDB (poor fit for relational data) |
 | Concurrency | DB EXCLUSION constraint | App-level locking, serializable transactions |
 | Frontend | React + Vite | Next.js, Vue, Svelte |
 | Infra | Docker Compose | Kubernetes (overkill), bare metal (not reproducible) |
 
-**NestJS over Go:** The concurrency advantage of Go doesn't apply here — correctness is enforced by PostgreSQL regardless of language. NestJS delivers faster with TypeScript end-to-end (shared types with the frontend) and less ceremony.
+**Go over NestJS:** Compiled binary, lower memory footprint, simpler deployment. The correctness advantage of NestJS's TypeScript (shared types with frontend) doesn't outweigh Go's runtime and toolchain benefits for a production-grade API.
 
-**NestJS over ASP.NET Core:** .NET is a legitimate production choice, but C# breaks TypeScript consistency across the stack. NestJS allows sharing DTOs and interfaces between backend and frontend, reducing duplication.
+**Go over ASP.NET Core:** Both are compiled and fast. Go produces a smaller binary, has simpler deployment (single static binary), and a more ergonomic toolchain for a focused HTTP API.
+
+**sqlc over GORM:** The overlap query is the heart of the system — sqlc lets you write the exact SQL you intend and generates type-safe Go functions from it. GORM hides the SQL behind an abstraction that makes critical queries harder to audit.
 
 **PostgreSQL over MySQL:** The EXCLUSION constraint is the core correctness mechanism. MySQL doesn't support it.
 
