@@ -65,95 +65,255 @@ The department can add coaches or extend the route without code changes.
 
 ---
 
-## 4. Data Model
+## 4. Entity-Relationship Overview
 
-### Station
 ```
-id            UUID
-name          string
-order         int       ← determines segment ordering
-distance_km   float     ← from Colombo Fort; used for fare calculation
-```
+LINE ||--|{ STATION         : "contains ordered"
+LINE ||--|{ TRAIN_SCHEDULE  : "operates on"
 
-### Coach
-```
-id            UUID
-number        int       ← coach number on the train
-type          enum      RESERVED | UNRESERVED
-rows          int
-seats_per_row int
-```
+TRAIN_SCHEDULE ||--|{ TRAIN_JOURNEY : "instantiates on date"
 
-### Seat
-```
-id            UUID
-coach_id      UUID
-seat_number   string    ← e.g. "1A", "1B"
-```
+COACH_TYPE ||--|{ COACH : "defines layout of"
+COACH      ||--|{ SEAT  : "contains"
 
-### Booking
-```
-id                UUID
-seat_id           UUID
-passenger_name    string
-passenger_email   string
-from_station_id   UUID
-to_station_id     UUID
-from_order        int    ← denormalized from station.order (for fast range queries)
-to_order          int    ← denormalized from station.order (for fast range queries)
-fare              decimal
-status            enum   CONFIRMED | CANCELLED | WAITLISTED
-created_at        timestamp
-```
+TRAIN_JOURNEY ||--|{ BOOKING : "has"
+SEAT          ||--|{ BOOKING : "reserved in"
 
-`from_order` and `to_order` are denormalized onto the booking row to make overlap queries fast
-and index-friendly — no join needed at query time.
-
-### Waitlist
-```
-id                UUID
-seat_id           UUID
-passenger_name    string
-passenger_email   string
-from_station_id   UUID
-to_station_id     UUID
-from_order        int
-to_order          int
-created_at        timestamp
-status            enum   PENDING | NOTIFIED | EXPIRED
+STATION ||--|{ BOOKING : "originates at (board_station)"
+STATION ||--|{ BOOKING : "terminates at (alight_station)"
 ```
 
 ---
 
-## 5. Core Logic
+## 5. Data Model
+
+### LINE
+```
+id     UUID  PK
+name   string        e.g. "Main Line"
+code   string UNIQUE e.g. "ML"
+```
+
+### STATION
+```
+id                      UUID  PK
+line_id                 UUID  FK → line
+name                    string        e.g. "Colombo Fort"
+sequence_order          int           0 = Fort, 5 = Kandy, 15 = Badulla
+distance_from_origin_km decimal
+UNIQUE(line_id, sequence_order)
+```
+
+`sequence_order` is the key to segment math. All overlap checks are integer comparisons on this field.
+
+### COACH_TYPE
+```
+id             UUID  PK
+name           string        e.g. "First Class Observation", "2nd Reserved"
+is_reserved    boolean       true = reserved seating, false = unreserved
+seat_capacity  int
+```
+
+Separating layout config from physical coaches means changing seat capacity is a data change, not a code change.
+
+### COACH
+```
+id             UUID  PK
+coach_number   string        e.g. "C1", "C2"
+coach_type_id  UUID  FK → coach_type
+```
+
+### SEAT
+```
+id           UUID  PK
+coach_id     UUID  FK → coach
+seat_number  string        e.g. "1A", "1B"
+row_num      int
+col_num      int
+UNIQUE(coach_id, seat_number)
+```
+
+### TRAIN_SCHEDULE
+```
+id              UUID  PK
+train_number    string UNIQUE  e.g. "1015" (Podi Menike)
+line_id         UUID  FK → line
+departure_time  time
+```
+
+### TRAIN_JOURNEY
+```
+id           UUID  PK
+schedule_id  UUID  FK → train_schedule
+travel_date  date
+status       enum  SCHEDULED | COMPLETED | CANCELLED
+UNIQUE(schedule_id, travel_date)
+```
+
+Separating schedule (the recurring pattern) from journey (a specific date's run) means a single
+schedule row can generate a journey per operating day without data duplication.
+
+### BOOKING
+```
+id                 UUID  PK
+journey_id         UUID  FK → train_journey
+seat_id             UUID  FK → seat
+board_station_id   UUID  FK → station
+alight_station_id  UUID  FK → station
+board_sequence     int                  ← sequence_order of board station
+alight_sequence    int                  ← sequence_order of alight station
+station_range      int4range GENERATED  ← int4range(board_sequence, alight_sequence, '[)')
+passenger_name     string
+passenger_email    string
+fare               decimal
+status             enum  CONFIRMED | CANCELLED | WAITLISTED
+created_at         timestamp
+
+CHECK (board_sequence < alight_sequence)
+EXCLUDE USING GIST (journey_id WITH =, seat_id WITH =, station_range WITH &&)
+  WHERE (status = 'CONFIRMED')
+```
+
+`station_range` is a **generated stored column** — PostgreSQL computes and stores it automatically
+from `board_sequence` and `alight_sequence`. No application code maintains it; the EXCLUSION
+constraint operates directly on it.
+
+### WAITLIST
+```
+id                 UUID  PK
+journey_id         UUID  FK → train_journey
+seat_id            UUID  FK → seat
+board_station_id   UUID  FK → station
+alight_station_id  UUID  FK → station
+board_sequence     int
+alight_sequence    int
+passenger_name     string
+passenger_email    string
+status             enum  PENDING | NOTIFIED | EXPIRED
+created_at         timestamp
+```
+
+---
+
+## 6. Full DDL
+
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+CREATE TABLE line (
+    id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(10)  UNIQUE NOT NULL
+);
+
+CREATE TABLE station (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    line_id                 UUID NOT NULL REFERENCES line(id) ON DELETE CASCADE,
+    name                    VARCHAR(100) NOT NULL,
+    sequence_order          INT NOT NULL,
+    distance_from_origin_km DECIMAL(6, 2) NOT NULL,
+    UNIQUE(line_id, sequence_order)
+);
+
+CREATE TABLE coach_type (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name          VARCHAR(50) NOT NULL,
+    is_reserved   BOOLEAN DEFAULT TRUE,
+    seat_capacity INT NOT NULL
+);
+
+CREATE TABLE coach (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    coach_number  VARCHAR(10) NOT NULL,
+    coach_type_id UUID NOT NULL REFERENCES coach_type(id)
+);
+
+CREATE TABLE seat (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    coach_id    UUID NOT NULL REFERENCES coach(id) ON DELETE CASCADE,
+    seat_number VARCHAR(10) NOT NULL,
+    row_num     INT NOT NULL,
+    col_num     INT NOT NULL,
+    UNIQUE(coach_id, seat_number)
+);
+
+CREATE TABLE train_schedule (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    train_number   VARCHAR(20) UNIQUE NOT NULL,
+    line_id        UUID NOT NULL REFERENCES line(id),
+    departure_time TIME NOT NULL
+);
+
+CREATE TABLE train_journey (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    schedule_id UUID NOT NULL REFERENCES train_schedule(id),
+    travel_date DATE NOT NULL,
+    status      VARCHAR(20) DEFAULT 'SCHEDULED',
+    UNIQUE(schedule_id, travel_date)
+);
+
+CREATE TABLE booking (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    journey_id         UUID NOT NULL REFERENCES train_journey(id),
+    seat_id            UUID NOT NULL REFERENCES seat(id),
+    board_station_id   UUID NOT NULL REFERENCES station(id),
+    alight_station_id  UUID NOT NULL REFERENCES station(id),
+    board_sequence     INT NOT NULL,
+    alight_sequence    INT NOT NULL,
+    station_range      INT4RANGE GENERATED ALWAYS AS (
+                           int4range(board_sequence, alight_sequence, '[)')
+                       ) STORED,
+    passenger_name     VARCHAR(100) NOT NULL,
+    passenger_email    VARCHAR(255) NOT NULL,
+    fare               DECIMAL(8, 2) NOT NULL,
+    status             VARCHAR(20) DEFAULT 'CONFIRMED',
+    created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT valid_station_order CHECK (board_sequence < alight_sequence),
+    CONSTRAINT no_overlapping_seat_bookings EXCLUDE USING gist (
+        journey_id    WITH =,
+        seat_id       WITH =,
+        station_range WITH &&
+    ) WHERE (status = 'CONFIRMED')
+);
+
+CREATE TABLE waitlist (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    journey_id        UUID NOT NULL REFERENCES train_journey(id),
+    seat_id           UUID NOT NULL REFERENCES seat(id),
+    board_station_id  UUID NOT NULL REFERENCES station(id),
+    alight_station_id UUID NOT NULL REFERENCES station(id),
+    board_sequence    INT NOT NULL,
+    alight_sequence   INT NOT NULL,
+    passenger_name    VARCHAR(100) NOT NULL,
+    passenger_email   VARCHAR(255) NOT NULL,
+    status            VARCHAR(20) DEFAULT 'PENDING',
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## 7. Core Logic
 
 ### Segment Overlap
 
-A booking occupies the interval `[from_order, to_order)` on a specific seat.
-Two bookings conflict if their intervals overlap:
-
-```
-existing.from_order < new.to_order
-AND
-existing.to_order > new.from_order
-```
-
-A seat is available for `[A, B)` if no confirmed booking on that seat satisfies the above.
+Every booking holds the half-open interval `[board_sequence, alight_sequence)` on a specific
+seat within a specific journey. Half-open ranges mean adjacent segments never conflict:
+`[0, 5)` and `[5, 15)` do not overlap — Passenger A disembarks at Kandy (5) exactly as
+Passenger B boards at Kandy (5).
 
 ### Concurrency
 
-**Approach: PostgreSQL EXCLUSION constraint**
+**Approach: PostgreSQL EXCLUSION constraint on `station_range`**
 
-```sql
-EXCLUDE USING GIST (
-  seat_id   WITH =,
-  int4range(from_order, to_order) WITH &&
-) WHERE (status = 'confirmed')
-```
+The `EXCLUDE USING GIST` constraint on `booking` is the single source of truth for correctness.
+When two concurrent requests attempt to book overlapping segments on the same seat+journey, the
+database serializes them — one INSERT succeeds, the other receives a constraint violation.
+The application catches this and returns `409 Conflict`. No application-level locks needed.
 
-This makes the database the authority on correctness. Concurrent inserts for overlapping segments
-are serialized by the DB — one succeeds, the other receives a constraint violation, which the
-application catches and returns as a `409 Conflict`. No application-level locking needed.
+The constraint is scoped to `journey_id` — the same physical seat can be booked independently
+across different journey dates, which is correct behaviour.
 
 ### Fare Calculation
 
@@ -180,7 +340,7 @@ their booking before the next waitlisted passenger is notified.
 
 ---
 
-## 6. API Design
+## 8. API Design
 
 All endpoints return JSON. Errors follow `{ "error": "message", "code": "ERROR_CODE" }`.
 
@@ -207,7 +367,7 @@ All endpoints return JSON. Errors follow `{ "error": "message", "code": "ERROR_C
 
 ---
 
-## 7. Frontend
+## 9. Frontend
 
 ### Pages
 
@@ -239,7 +399,7 @@ All endpoints return JSON. Errors follow `{ "error": "message", "code": "ERROR_C
 
 ---
 
-## 8. Tech Stack
+## 10. Tech Stack
 
 | Layer | Choice | Reason |
 |---|---|---|
@@ -253,7 +413,7 @@ All endpoints return JSON. Errors follow `{ "error": "message", "code": "ERROR_C
 
 ---
 
-## 9. Stack Decision Records
+## 11. Stack Decision Records
 
 Why each technology was chosen over its main alternatives.
 
@@ -344,7 +504,7 @@ Why each technology was chosen over its main alternatives.
 
 ---
 
-## 10. Scalability
+## 12. Scalability
 
 ### Realistic Load for This System
 
@@ -388,7 +548,7 @@ These are not built now but are non-breaking additions later:
 
 ---
 
-## 10. Non-Functional Requirements
+## 13. Non-Functional Requirements
 
 - **Correctness over performance** — double-booking must be impossible under any concurrency
 - **Configurable** — stations, coaches, seats, and fare rate seeded from config/env; no magic numbers in code
@@ -397,7 +557,7 @@ These are not built now but are non-breaking additions later:
 
 ---
 
-## 11. Extra Credit (prioritized)
+## 14. Extra Credit (prioritized)
 
 1. **Seat map visualization** — visual grid per coach with color-coded availability
 2. **Waitlisting** — queue per segment; promotion on cancellation
@@ -407,7 +567,7 @@ These are not built now but are non-breaking additions later:
 
 ---
 
-## 12. Out of Scope / Future Considerations
+## 15. Out of Scope / Future Considerations
 
 - Return journey / multi-trip scheduling
 - Seat preference (window/aisle)
