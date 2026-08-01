@@ -35,7 +35,8 @@ export default function SeatSelectionPage() {
   const location = useLocation()
   const state = location.state as LocationState | null
 
-  const [seats, setSeats] = useState<Seat[]>([])
+  const [availableSeats, setAvailableSeats] = useState<Seat[]>([])
+  const [allSeats, setAllSeats] = useState<Seat[]>([])
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [stations, setStations] = useState<Station[]>([])
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([])
@@ -58,10 +59,14 @@ export default function SeatSelectionPage() {
       request<Coach[]>(`/coaches?type_id=${coachTypeId}`),
       request<Station[]>(`/stations?route_id=aaaaaaaa-0000-0000-0000-000000000001`),
     ])
-      .then(([s, c, st]) => {
-        setSeats(s)
+      .then(async ([avail, c, st]) => {
+        setAvailableSeats(avail)
         setCoaches(c)
         setStations(st)
+        const allSeatsList = (
+          await Promise.all(c.map((coach) => request<Seat[]>(`/seats?coach_id=${coach.id}`)))
+        ).flat()
+        setAllSeats(allSeatsList)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -80,8 +85,10 @@ export default function SeatSelectionPage() {
       s.sequence_order <= (toStation?.sequence_order ?? 0),
   )
 
+  const availableSet = new Set(availableSeats.map((s) => s.id))
+
   const seatsByCoach = coaches.reduce<Record<string, Seat[]>>((acc, c) => {
-    acc[c.id] = seats.filter((s) => s.coach_id === c.id)
+    acc[c.id] = allSeats.filter((s) => s.coach_id === c.id)
     return acc
   }, {})
 
@@ -273,6 +280,10 @@ export default function SeatSelectionPage() {
                     <span className="w-3 h-3 rounded bg-blue-700 inline-block" />
                     Selected
                   </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-red-50 border border-red-200 inline-block" />
+                    Occupied
+                  </span>
                 </div>
               </div>
 
@@ -280,7 +291,7 @@ export default function SeatSelectionPage() {
                 <div className="p-16 flex justify-center">
                   <Loader2 size={28} className="animate-spin text-blue-600" />
                 </div>
-              ) : seats.length === 0 ? (
+              ) : availableSeats.length === 0 && allSeats.length === 0 ? (
                 <div className="p-12 text-center">
                   <AlertTriangle size={32} className="mx-auto text-amber-400 mb-3" />
                   <p className="font-semibold text-gray-700">No seats available for this segment</p>
@@ -300,20 +311,25 @@ export default function SeatSelectionPage() {
                         </p>
                         <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 gap-1.5">
                           {cs.map((seat) => {
+                            const isAvailable = availableSet.has(seat.id)
                             const isSelected = selectedSeats.some((s) => s.id === seat.id)
                             const maxReached = selectedSeats.length >= passengers && !isSelected
+                            const isOccupied = !isAvailable
+
                             return (
                               <button
                                 key={seat.id}
-                                onClick={() => toggleSeat(seat)}
-                                disabled={maxReached}
-                                title={`Seat ${seat.seat_number}`}
+                                onClick={() => isAvailable && !maxReached ? toggleSeat(seat) : undefined}
+                                disabled={isOccupied || maxReached}
+                                title={isOccupied ? `Seat ${seat.seat_number} — Occupied` : `Seat ${seat.seat_number}`}
                                 className={`aspect-square rounded text-xs font-semibold border transition-all ${
-                                  isSelected
-                                    ? 'bg-blue-700 text-white border-blue-700 shadow scale-105'
-                                    : maxReached
-                                      ? 'bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed'
-                                      : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                  isOccupied
+                                    ? 'bg-red-50 text-red-300 border-red-200 cursor-not-allowed'
+                                    : isSelected
+                                      ? 'bg-blue-700 text-white border-blue-700 shadow scale-105'
+                                      : maxReached
+                                        ? 'bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed'
+                                        : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
                                 }`}
                               >
                                 {seat.seat_number}

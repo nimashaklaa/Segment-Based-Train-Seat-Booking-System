@@ -6,6 +6,17 @@ import (
 	"github.com/nimashaklaa/train-seat-booking/internal/db"
 )
 
+func (s *Service) ListSeatsByCoach(ctx context.Context, coachID string) ([]db.Seat, error) {
+	seats, err := s.queries.ListSeatsByCoach(ctx, coachID)
+	if err != nil {
+		return nil, err
+	}
+	if seats == nil {
+		seats = []db.Seat{}
+	}
+	return seats, nil
+}
+
 // GetAvailableSeats returns seats not booked for any overlapping segment.
 //
 // Note: GetAvailableSeatsParams field names are swapped relative to their SQL

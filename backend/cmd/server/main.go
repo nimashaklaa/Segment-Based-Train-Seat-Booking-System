@@ -112,6 +112,7 @@ func main() {
 	r.Post("/admin/stations", h.CreateStation)
 	r.Put("/admin/stations/{id}", h.UpdateStation)
 	r.Get("/coaches", h.ListCoaches)
+	r.Get("/seats", h.ListSeatsByCoach)
 	r.Get("/seats/available", h.GetAvailableSeats)
 	r.Post("/bookings", h.CreateBooking(mail))
 	r.Get("/bookings/{id}", h.GetBooking)
