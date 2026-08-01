@@ -187,18 +187,23 @@ func Run(db *sql.DB) error {
 		}
 	}
 
-	log.Println("[seed] Seeding journeys for today...")
+	log.Println("[seed] Seeding journeys for next 30 days...")
 	today := time.Now().UTC().Truncate(24 * time.Hour)
-	for _, sch := range schedules {
-		if err := exec(`INSERT INTO train_journeys (schedule_id, travel_date, status)
-			VALUES ($1, $2, 'SCHEDULED')
-			ON CONFLICT (schedule_id, travel_date) DO NOTHING`,
-			sch.id, today); err != nil {
-			return fmt.Errorf("journey %s: %w", sch.number, err)
+	journeyCount := 0
+	for day := 0; day < 30; day++ {
+		date := today.AddDate(0, 0, day)
+		for _, sch := range schedules {
+			if err := exec(`INSERT INTO train_journeys (schedule_id, travel_date, status)
+				VALUES ($1, $2, 'SCHEDULED')
+				ON CONFLICT (schedule_id, travel_date) DO NOTHING`,
+				sch.id, date); err != nil {
+				return fmt.Errorf("journey %s on %s: %w", sch.number, date.Format("2006-01-02"), err)
+			}
+			journeyCount++
 		}
 	}
 
-	log.Printf("[seed] Done — 1 route, %d stations, 3 coach types, %d coaches, %d seats, 3 schedules, 3 journeys.",
-		len(stations), len(coaches), totalSeats)
+	log.Printf("[seed] Done — 1 route, %d stations, 3 coach types, %d coaches, %d seats, 3 schedules, %d journeys (30 days).",
+		len(stations), len(coaches), totalSeats, journeyCount)
 	return nil
 }

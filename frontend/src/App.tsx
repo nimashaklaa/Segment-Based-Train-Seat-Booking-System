@@ -5,7 +5,7 @@ import AvailabilityPage from './pages/AvailabilityPage'
 import SeatSelectionPage from './pages/SeatSelectionPage'
 import BookingSuccessPage from './pages/BookingSuccessPage'
 import MyBookingPage from './pages/MyBookingPage'
-import AdminPage from './pages/AdminPage'
+import AdminPage from './pages/admin/AdminPage'
 
 export default function App() {
   return (
