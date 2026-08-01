@@ -28,9 +28,8 @@ export interface Station {
 
 export interface Coach {
   id: string;
-  name: string;
+  coach_number: string;
   coach_type_id: string;
-  journey_id: string;
 }
 
 export interface Seat {
@@ -52,6 +51,20 @@ export interface Booking {
   created_at: string;
 }
 
+export interface TrainSchedule {
+  id: string
+  train_number: string
+  route_id: string
+  departure_time: string
+}
+
+export interface TrainJourney {
+  id: string
+  schedule_id: string
+  travel_date: string
+  status: string
+}
+
 export interface OccupancyResult {
   journey_id: string;
   total_bookings: number;
@@ -65,6 +78,12 @@ export interface RevenueResult {
 }
 
 export const api = {
+  listSchedules: (routeId: string) =>
+    request<TrainSchedule[]>(`/schedules?route_id=${routeId}`),
+
+  listJourneys: (date: string) =>
+    request<TrainJourney[]>(`/journeys?date=${date}`),
+
   listStations: (routeId: string) =>
     request<Station[]>(`/stations?route_id=${routeId}`),
 

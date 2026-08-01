@@ -94,6 +94,8 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
+	r.Get("/schedules", h.ListSchedules)
+	r.Get("/journeys", h.ListJourneys)
 	r.Get("/stations", h.ListStations)
 	r.Get("/coaches", h.ListCoaches)
 	r.Get("/seats/available", h.GetAvailableSeats)

@@ -40,7 +40,9 @@ const (
 	coachTC04ID = "dddddddd-0000-0000-0000-000000000007"
 	coachTC05ID = "dddddddd-0000-0000-0000-000000000008"
 
-	scheduleID = "eeeeeeee-0000-0000-0000-000000000001"
+	scheduleID      = "eeeeeeee-0000-0000-0000-000000000001"
+	schedulePodiID  = "eeeeeeee-0000-0000-0000-000000000002"
+	scheduleNightID = "eeeeeeee-0000-0000-0000-000000000003"
 )
 
 // Run populates the database with the Colombo Fort–Badulla route, stations,
@@ -165,25 +167,38 @@ func Run(db *sql.DB) error {
 		}
 	}
 
-	log.Println("[seed] Seeding train schedule (Udarata Menike #1005, 05:55)...")
-	departure := time.Date(0, 1, 1, 5, 55, 0, 0, time.UTC)
-	if err := exec(`INSERT INTO train_schedules (id, train_number, route_id, departure_time)
-		VALUES ($1, '1005', $2, $3)
-		ON CONFLICT (train_number) DO NOTHING`,
-		scheduleID, routeID, departure); err != nil {
-		return fmt.Errorf("schedule: %w", err)
+	log.Println("[seed] Seeding train schedules...")
+	type scheduleRow struct {
+		id     string
+		number string
+		depart time.Time
+	}
+	schedules := []scheduleRow{
+		{scheduleID, "1005", time.Date(0, 1, 1, 5, 55, 0, 0, time.UTC)},
+		{schedulePodiID, "1015", time.Date(0, 1, 1, 9, 45, 0, 0, time.UTC)},
+		{scheduleNightID, "1007", time.Date(0, 1, 1, 21, 30, 0, 0, time.UTC)},
+	}
+	for _, sch := range schedules {
+		if err := exec(`INSERT INTO train_schedules (id, train_number, route_id, departure_time)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (train_number) DO NOTHING`,
+			sch.id, sch.number, routeID, sch.depart); err != nil {
+			return fmt.Errorf("schedule %s: %w", sch.number, err)
+		}
 	}
 
-	log.Println("[seed] Seeding journey for today...")
+	log.Println("[seed] Seeding journeys for today...")
 	today := time.Now().UTC().Truncate(24 * time.Hour)
-	if err := exec(`INSERT INTO train_journeys (schedule_id, travel_date, status)
-		VALUES ($1, $2, 'SCHEDULED')
-		ON CONFLICT (schedule_id, travel_date) DO NOTHING`,
-		scheduleID, today); err != nil {
-		return fmt.Errorf("journey: %w", err)
+	for _, sch := range schedules {
+		if err := exec(`INSERT INTO train_journeys (schedule_id, travel_date, status)
+			VALUES ($1, $2, 'SCHEDULED')
+			ON CONFLICT (schedule_id, travel_date) DO NOTHING`,
+			sch.id, today); err != nil {
+			return fmt.Errorf("journey %s: %w", sch.number, err)
+		}
 	}
 
-	log.Printf("[seed] Done — 1 route, %d stations, 3 coach types, %d coaches, %d seats, 1 schedule, 1 journey.",
+	log.Printf("[seed] Done — 1 route, %d stations, 3 coach types, %d coaches, %d seats, 3 schedules, 3 journeys.",
 		len(stations), len(coaches), totalSeats)
 	return nil
 }
