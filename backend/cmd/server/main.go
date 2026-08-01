@@ -13,6 +13,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+
+	"github.com/nimashaklaa/train-seat-booking/internal/db"
 )
 
 func main() {
@@ -22,17 +24,17 @@ func main() {
 	}
 
 	// Connect to database
-	db, err := sql.Open("postgres", dbURL)
+	database, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("Failed to open DB connection: %v", err)
 	}
-	defer func(db *sql.DB) {
-		if err := db.Close(); err != nil {
+	defer func(database *sql.DB) {
+		if err := database.Close(); err != nil {
 			log.Printf("Error closing database connection: %v\n", err)
 		}
-	}(db)
+	}(database)
 
-	if err := db.Ping(); err != nil {
+	if err := database.Ping(); err != nil {
 		log.Fatalf("Failed to ping DB: %v", err)
 	}
 	log.Println("Successfully connected to PostgreSQL database")
@@ -48,6 +50,9 @@ func main() {
 	}
 	log.Println("Migrations applied successfully")
 
+	// Set up queries — pass to handlers as you build them
+	queries := db.New(database)
+
 	// Set up router
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -58,6 +63,8 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	_ = queries // TODO: pass to route handlers
 
 	log.Println("Server running on :3000")
 	log.Fatal(http.ListenAndServe(":3000", r))
