@@ -32,3 +32,7 @@ prisma/migrations/dev.db
 
 # Test coverage
 coverage/
+
+# Go binaries
+backend/seed
+backend/server
