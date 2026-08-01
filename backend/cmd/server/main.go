@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -15,12 +16,20 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/nimashaklaa/train-seat-booking/internal/db"
+	"github.com/nimashaklaa/train-seat-booking/internal/handler"
 )
 
 func main() {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "postgres://postgres:password@localhost:5432/train_booking?sslmode=disable"
+	}
+
+	fareRatePerKm := 2.50
+	if v := os.Getenv("FARE_RATE_PER_KM"); v != "" {
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+			fareRatePerKm = parsed
+		}
 	}
 
 	// Connect to database
@@ -50,10 +59,9 @@ func main() {
 	}
 	log.Println("Migrations applied successfully")
 
-	// Set up queries — pass to handlers as you build them
 	queries := db.New(database)
+	h := handler.New(queries, fareRatePerKm)
 
-	// Set up router
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -64,7 +72,26 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	_ = queries // TODO: pass to route handlers
+	// Stations
+	r.Get("/stations", h.ListStations)
+
+	// Coaches
+	r.Get("/coaches", h.ListCoaches)
+
+	// Seats
+	r.Get("/seats/available", h.GetAvailableSeats)
+
+	// Bookings
+	r.Post("/bookings", h.CreateBooking)
+	r.Get("/bookings/{id}", h.GetBooking)
+	r.Delete("/bookings/{id}", h.CancelBooking)
+
+	// Waitlist
+	r.Post("/waitlist", h.CreateWaitlistEntry)
+
+	// Admin
+	r.Get("/admin/occupancy", h.GetOccupancy)
+	r.Get("/admin/revenue", h.GetRevenue)
 
 	log.Println("Server running on :3000")
 	log.Fatal(http.ListenAndServe(":3000", r))
