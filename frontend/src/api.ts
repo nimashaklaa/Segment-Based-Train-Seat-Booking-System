@@ -65,6 +65,29 @@ export interface TrainJourney {
   status: string
 }
 
+export interface Route {
+  id: string;
+  name: string;
+  code: string;
+  origin: string;
+  destination: string;
+}
+
+export interface CoachType {
+  id: string;
+  name: string;
+  is_reserved: boolean;
+  seat_capacity: number;
+}
+
+export interface CoachWithType {
+  id: string;
+  coach_number: string;
+  coach_type_id: string;
+  coach_type_name: string;
+  seat_capacity: number;
+}
+
 export interface OccupancyResult {
   journey_id: string;
   total_bookings: number;
@@ -128,4 +151,34 @@ export const api = {
 
   getRevenue: (journeyId?: string) =>
     request<RevenueResult[]>(`/admin/revenue${journeyId ? `?journey_id=${journeyId}` : ''}`),
+
+  // Admin - Routes
+  listRoutes: () => request<Route[]>('/admin/routes'),
+  createRoute: (body: { name: string; code: string; origin: string; destination: string }) =>
+    request<Route>('/admin/routes', { method: 'POST', body: JSON.stringify(body) }),
+  updateRoute: (id: string, body: { name: string; code: string; origin: string; destination: string }) =>
+    request<Route>(`/admin/routes/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+
+  // Admin - Schedules
+  listAllSchedules: () => request<TrainSchedule[]>('/admin/schedules'),
+  createSchedule: (body: { train_number: string; route_id: string; departure_time: string }) =>
+    request<TrainSchedule>('/admin/schedules', { method: 'POST', body: JSON.stringify(body) }),
+  updateSchedule: (id: string, body: { train_number: string; departure_time: string }) =>
+    request<TrainSchedule>(`/admin/schedules/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteSchedule: (id: string) =>
+    request<void>(`/admin/schedules/${id}`, { method: 'DELETE' }),
+
+  // Admin - Journeys
+  listAllJourneys: () => request<TrainJourney[]>('/admin/journeys'),
+  createJourney: (body: { schedule_id: string; travel_date: string }) =>
+    request<TrainJourney>('/admin/journeys', { method: 'POST', body: JSON.stringify(body) }),
+  updateJourneyStatus: (id: string, status: string) =>
+    request<TrainJourney>(`/admin/journeys/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+
+  // Admin - Coaches
+  listAllCoaches: () => request<CoachWithType[]>('/admin/coaches'),
+  listCoachTypes: () => request<CoachType[]>('/admin/coach-types'),
+  createCoach: (body: { coach_number: string; coach_type_id: string }) =>
+    request<{ id: string; coach_number: string; coach_type_id: string }>('/admin/coaches', { method: 'POST', body: JSON.stringify(body) }),
+  deleteCoach: (id: string) => request<void>(`/admin/coaches/${id}`, { method: 'DELETE' }),
 };

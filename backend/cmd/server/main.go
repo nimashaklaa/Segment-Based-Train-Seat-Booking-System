@@ -108,6 +108,22 @@ func main() {
 	r.Get("/admin/occupancy", h.GetOccupancy)
 	r.Get("/admin/revenue", h.GetRevenue)
 
+	// Admin CRUD
+	r.Get("/admin/routes", h.ListRoutes)
+	r.Post("/admin/routes", h.CreateRoute)
+	r.Put("/admin/routes/{id}", h.UpdateRoute)
+	r.Get("/admin/schedules", h.ListAllSchedules)
+	r.Post("/admin/schedules", h.CreateSchedule)
+	r.Put("/admin/schedules/{id}", h.UpdateSchedule)
+	r.Delete("/admin/schedules/{id}", h.DeleteSchedule)
+	r.Get("/admin/journeys", h.ListAllJourneys)
+	r.Post("/admin/journeys", h.CreateJourney)
+	r.Put("/admin/journeys/{id}/status", h.UpdateJourneyStatus)
+	r.Get("/admin/coaches", h.ListAllCoaches)
+	r.Get("/admin/coach-types", h.ListCoachTypes)
+	r.Post("/admin/coaches", h.CreateCoach)
+	r.Delete("/admin/coaches/{id}", h.DeleteCoach)
+
 	log.Println("Server running on :3000")
 	log.Fatal(http.ListenAndServe(":3000", r))
 }
