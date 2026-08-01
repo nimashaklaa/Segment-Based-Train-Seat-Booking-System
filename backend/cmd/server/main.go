@@ -81,7 +81,7 @@ func main() {
 
 	queries := db.New(database)
 	mail := mailer.New(smtpHost, smtpPort, smtpFrom)
-	svc := service.New(queries, fareRatePerKm)
+	svc := service.New(queries, database, fareRatePerKm)
 	h := handler.New(svc)
 
 	r := chi.NewRouter()
@@ -97,6 +97,8 @@ func main() {
 	r.Get("/schedules", h.ListSchedules)
 	r.Get("/journeys", h.ListJourneys)
 	r.Get("/stations", h.ListStations)
+	r.Post("/admin/stations", h.CreateStation)
+	r.Put("/admin/stations/{id}", h.UpdateStation)
 	r.Get("/coaches", h.ListCoaches)
 	r.Get("/seats/available", h.GetAvailableSeats)
 	r.Post("/bookings", h.CreateBooking(mail))

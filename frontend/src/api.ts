@@ -117,6 +117,12 @@ export const api = {
     passenger_email: string;
   }) => request<{ id: string }>('/waitlist', { method: 'POST', body: JSON.stringify(body) }),
 
+  createStation: (body: { route_id: string; name: string; sequence_order: number; distance_from_origin_km: string }) =>
+    request<Station>('/admin/stations', { method: 'POST', body: JSON.stringify(body) }),
+
+  updateStation: (id: string, body: { name: string; sequence_order: number; distance_from_origin_km: string }) =>
+    request<Station>(`/admin/stations/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+
   getOccupancy: (journeyId?: string) =>
     request<OccupancyResult[]>(`/admin/occupancy${journeyId ? `?journey_id=${journeyId}` : ''}`),
 

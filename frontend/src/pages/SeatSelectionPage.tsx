@@ -18,6 +18,7 @@ interface LocationState {
   coachTypeId: string
   departureTime: string
   trainNumber: string
+  passengers: number
 }
 
 export default function SeatSelectionPage() {
@@ -96,8 +97,8 @@ export default function SeatSelectionPage() {
       <div className="bg-blue-700 text-white">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-blue-200">
-            <button onClick={() => navigate('/')} className="hover:text-white transition-colors flex items-center gap-1">
-              <ArrowLeft size={14} /> Home
+            <button onClick={() => navigate(-1)} className="hover:text-white transition-colors flex items-center gap-1">
+              <ArrowLeft size={14} /> Availability
             </button>
             <ChevronRight size={14} />
             <span className="text-white font-medium">Seat Selection</span>

@@ -13,11 +13,12 @@ import (
 // Service holds all dependencies shared across business logic methods.
 type Service struct {
 	queries       db.Querier
+	rawDB         *sql.DB
 	fareRatePerKm float64
 }
 
-func New(q db.Querier, fareRatePerKm float64) *Service {
-	return &Service{queries: q, fareRatePerKm: fareRatePerKm}
+func New(q db.Querier, rawDB *sql.DB, fareRatePerKm float64) *Service {
+	return &Service{queries: q, rawDB: rawDB, fareRatePerKm: fareRatePerKm}
 }
 
 // resolveStations fetches both stations and verifies the from→to direction.
