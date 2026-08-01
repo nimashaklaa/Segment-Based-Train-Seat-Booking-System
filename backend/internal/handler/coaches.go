@@ -2,8 +2,6 @@ package handler
 
 import (
 	"net/http"
-
-	"github.com/nimashaklaa/train-seat-booking/internal/db"
 )
 
 // GET /coaches?type_id=
@@ -13,13 +11,10 @@ func (h *Handler) ListCoaches(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "type_id is required")
 		return
 	}
-	coaches, err := h.queries.ListCoachesByType(r.Context(), typeID)
+	coaches, err := h.svc.ListCoaches(r.Context(), typeID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list coaches")
+		mapServiceError(w, err)
 		return
-	}
-	if coaches == nil {
-		coaches = []db.Coach{}
 	}
 	writeJSON(w, http.StatusOK, coaches)
 }

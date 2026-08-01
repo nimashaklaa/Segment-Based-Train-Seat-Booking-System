@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/nimashaklaa/train-seat-booking/internal/db"
+	"github.com/nimashaklaa/train-seat-booking/internal/service"
 )
 
 // POST /waitlist
@@ -12,26 +12,17 @@ func (h *Handler) CreateWaitlistEntry(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-
-	fromStation, toStation, ok := h.resolveStations(w, r, req.FromStationID, req.ToStationID)
-	if !ok {
-		return
-	}
-
-	entry, err := h.queries.CreateWaitlistEntry(r.Context(), db.CreateWaitlistEntryParams{
-		JourneyID:       req.JourneyID,
-		SeatID:          req.SeatID,
-		BoardStationID:  req.FromStationID,
-		AlightStationID: req.ToStationID,
-		BoardSequence:   fromStation.SequenceOrder,
-		AlightSequence:  toStation.SequenceOrder,
-		PassengerName:   req.PassengerName,
-		PassengerEmail:  req.PassengerEmail,
+	entry, err := h.svc.CreateWaitlistEntry(r.Context(), service.BookingInput{
+		JourneyID:      req.JourneyID,
+		SeatID:         req.SeatID,
+		FromStationID:  req.FromStationID,
+		ToStationID:    req.ToStationID,
+		PassengerName:  req.PassengerName,
+		PassengerEmail: req.PassengerEmail,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create waitlist entry")
+		mapServiceError(w, err)
 		return
 	}
-
 	writeJSON(w, http.StatusCreated, entry)
 }
