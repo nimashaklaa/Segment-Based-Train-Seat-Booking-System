@@ -17,6 +17,7 @@ import (
 
 	"github.com/nimashaklaa/train-seat-booking/internal/db"
 	"github.com/nimashaklaa/train-seat-booking/internal/handler"
+	"github.com/nimashaklaa/train-seat-booking/internal/mailer"
 )
 
 func main() {
@@ -30,6 +31,19 @@ func main() {
 		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
 			fareRatePerKm = parsed
 		}
+	}
+
+	smtpHost := os.Getenv("SMTP_HOST")
+	if smtpHost == "" {
+		smtpHost = "localhost"
+	}
+	smtpPort := os.Getenv("SMTP_PORT")
+	if smtpPort == "" {
+		smtpPort = "1025"
+	}
+	smtpFrom := os.Getenv("SMTP_FROM")
+	if smtpFrom == "" {
+		smtpFrom = "noreply@trainbooking.local"
 	}
 
 	// Connect to database
@@ -60,7 +74,8 @@ func main() {
 	log.Println("Migrations applied successfully")
 
 	queries := db.New(database)
-	h := handler.New(queries, fareRatePerKm)
+	mail := mailer.New(smtpHost, smtpPort, smtpFrom)
+	h := handler.New(queries, mail, fareRatePerKm)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

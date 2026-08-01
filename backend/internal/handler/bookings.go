@@ -1,59 +1,25 @@
 package handler
 
 import (
-	"database/sql"
-	"encoding/json"
-	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nimashaklaa/train-seat-booking/internal/db"
+	"github.com/nimashaklaa/train-seat-booking/internal/mailer"
 )
-
-type createBookingRequest struct {
-	JourneyID      string `json:"journey_id"`
-	SeatID         string `json:"seat_id"`
-	FromStationID  string `json:"from_station_id"`
-	ToStationID    string `json:"to_station_id"`
-	PassengerName  string `json:"passenger_name"`
-	PassengerEmail string `json:"passenger_email"`
-}
 
 // POST /bookings
 func (h *Handler) CreateBooking(w http.ResponseWriter, r *http.Request) {
-	var req createBookingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.JourneyID == "" || req.SeatID == "" || req.FromStationID == "" ||
-		req.ToStationID == "" || req.PassengerName == "" || req.PassengerEmail == "" {
-		writeError(w, http.StatusBadRequest, "journey_id, seat_id, from_station_id, to_station_id, passenger_name and passenger_email are required")
+	req, ok := decodePassengerJourneyRequest(w, r)
+	if !ok {
 		return
 	}
 
-	fromStation, err := h.queries.GetStation(r.Context(), req.FromStationID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "from station not found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to get from station")
-		return
-	}
-	toStation, err := h.queries.GetStation(r.Context(), req.ToStationID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "to station not found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to get to station")
-		return
-	}
-
-	if fromStation.SequenceOrder >= toStation.SequenceOrder {
-		writeError(w, http.StatusBadRequest, "from station must come before to station on the route")
+	fromStation, toStation, ok := h.resolveStations(w, r, req.FromStationID, req.ToStationID)
+	if !ok {
 		return
 	}
 
@@ -84,33 +50,54 @@ func (h *Handler) CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go func() {
+		if err := h.mailer.SendBookingConfirmation(mailer.BookingConfirmationData{
+			PassengerName:  booking.PassengerName,
+			PassengerEmail: booking.PassengerEmail,
+			BookingID:      booking.ID,
+			JourneyID:      booking.JourneyID,
+			SeatID:         booking.SeatID,
+			BoardStation:   fromStation.Name,
+			AlightStation:  toStation.Name,
+			Fare:           booking.Fare,
+		}); err != nil {
+			log.Printf("failed to send booking confirmation email for booking %s: %v", booking.ID, err)
+		}
+	}()
+
 	writeJSON(w, http.StatusCreated, booking)
 }
 
-// GET /bookings/:id
+// GET /bookings/{id}?email=
+// Passengers must supply their email to retrieve the booking.
 func (h *Handler) GetBooking(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	booking, err := h.queries.GetBooking(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "booking not found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to get booking")
+	email := strings.TrimSpace(r.URL.Query().Get("email"))
+	if email == "" {
+		writeError(w, http.StatusBadRequest, "email query parameter is required")
+		return
+	}
+	booking, ok := h.verifyBookingOwner(w, r, id, email)
+	if !ok {
 		return
 	}
 	writeJSON(w, http.StatusOK, booking)
 }
 
-// DELETE /bookings/:id
+// DELETE /bookings/{id}?email=
+// Passengers must supply their email to cancel the booking.
 func (h *Handler) CancelBooking(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	email := strings.TrimSpace(r.URL.Query().Get("email"))
+	if email == "" {
+		writeError(w, http.StatusBadRequest, "email query parameter is required")
+		return
+	}
+	if _, ok := h.verifyBookingOwner(w, r, id, email); !ok {
+		return
+	}
 	booking, err := h.queries.CancelBooking(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "booking not found")
-			return
-		}
 		writeError(w, http.StatusInternalServerError, "failed to cancel booking")
 		return
 	}

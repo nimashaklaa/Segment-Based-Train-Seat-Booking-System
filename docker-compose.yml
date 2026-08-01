@@ -16,6 +16,13 @@ services:
       timeout: 5s
       retries: 5
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI — open http://localhost:8025 to see emails
+
   backend:
     build: ./backend
     restart: unless-stopped
@@ -25,9 +32,13 @@ services:
       - ./backend/.env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
     depends_on:
       db:
         condition: service_healthy
+      mailhog:
+        condition: service_started
 
   frontend:
     build: ./frontend
