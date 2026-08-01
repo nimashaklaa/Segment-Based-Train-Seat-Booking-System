@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import {
-  ArrowLeft, ChevronRight, Train, Clock, MapPin,
-  Users, CheckCircle, XCircle, Loader2,
+  ArrowLeft,
+  ChevronRight,
+  Train,
+  Clock,
+  MapPin,
+  Users,
+  CheckCircle,
+  XCircle,
+  Loader2,
 } from 'lucide-react'
-import { api } from '../api'
-import type { Station, TrainSchedule, TrainJourney } from '../api'
+import { request } from '../services/http'
+import type { Station, TrainSchedule, TrainJourney } from '../types'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
 
 const ROUTE_ID = 'aaaaaaaa-0000-0000-0000-000000000001'
@@ -70,16 +77,21 @@ export default function AvailabilityPage() {
   const [, setLoadingAvail] = useState(false)
 
   useEffect(() => {
-    if (!state) { navigate('/'); return }
+    if (!state) {
+      navigate('/')
+      return
+    }
     Promise.all([
-      api.listStations(ROUTE_ID),
-      api.listSchedules(ROUTE_ID),
-      api.listJourneys(state.date),
-    ]).then(([st, sc, j]) => {
-      setStations(st)
-      setSchedules(sc)
-      setJourneys(j)
-    }).catch(console.error)
+      request<Station[]>(`/stations?route_id=${ROUTE_ID}`),
+      request<TrainSchedule[]>(`/schedules?route_id=${ROUTE_ID}`),
+      request<TrainJourney[]>(`/journeys?date=${state.date}`),
+    ])
+      .then(([st, sc, j]) => {
+        setStations(st)
+        setSchedules(sc)
+        setJourneys(j)
+      })
+      .catch(console.error)
       .finally(() => setLoadingMeta(false))
   }, [])
 
@@ -87,19 +99,25 @@ export default function AvailabilityPage() {
   useEffect(() => {
     if (!selectedJourneyId || !state) return
     setLoadingAvail(true)
-    setAvailability(COACH_TYPES.map(ct => ({ coachTypeId: ct.id, availableSeats: 0, loading: true })))
+    setAvailability(
+      COACH_TYPES.map((ct) => ({ coachTypeId: ct.id, availableSeats: 0, loading: true })),
+    )
 
     COACH_TYPES.forEach((ct, i) => {
-      api.getAvailableSeats(selectedJourneyId, state.fromId, state.toId, ct.id)
-        .then(seats => {
-          setAvailability(prev => prev.map((a, idx) =>
-            idx === i ? { ...a, availableSeats: seats.length, loading: false } : a
-          ))
+      request<{ id: string }[]>(
+        `/seats/available?journey_id=${selectedJourneyId}&from_station_id=${state.fromId}&to_station_id=${state.toId}&coach_type_id=${ct.id}`,
+      )
+        .then((seats) => {
+          setAvailability((prev) =>
+            prev.map((a, idx) =>
+              idx === i ? { ...a, availableSeats: seats.length, loading: false } : a,
+            ),
+          )
         })
         .catch(() => {
-          setAvailability(prev => prev.map((a, idx) =>
-            idx === i ? { ...a, availableSeats: 0, loading: false } : a
-          ))
+          setAvailability((prev) =>
+            prev.map((a, idx) => (idx === i ? { ...a, availableSeats: 0, loading: false } : a)),
+          )
         })
         .finally(() => {
           if (i === COACH_TYPES.length - 1) setLoadingAvail(false)
@@ -110,32 +128,46 @@ export default function AvailabilityPage() {
   if (!state) return null
   const { fromId, toId, passengers, date } = state
 
-  const fromStation = stations.find(s => s.id === fromId)
-  const toStation = stations.find(s => s.id === toId)
+  const fromStation = stations.find((s) => s.id === fromId)
+  const toStation = stations.find((s) => s.id === toId)
 
-  const distanceKm = fromStation && toStation
-    ? parseFloat(toStation.distance_from_origin_km) - parseFloat(fromStation.distance_from_origin_km)
-    : 0
+  const distanceKm =
+    fromStation && toStation
+      ? parseFloat(toStation.distance_from_origin_km) -
+        parseFloat(fromStation.distance_from_origin_km)
+      : 0
   const baseFare = distanceKm * 2.5
 
   // Join journeys with their schedules
-  const journeysWithSchedule = journeys.map(j => ({
+  const journeysWithSchedule = journeys.map((j) => ({
     ...j,
-    schedule: schedules.find(s => s.id === j.schedule_id),
+    schedule: schedules.find((s) => s.id === j.schedule_id),
   }))
 
-  const selectedJourney = journeysWithSchedule.find(j => j.id === selectedJourneyId)
+  const selectedJourney = journeysWithSchedule.find((j) => j.id === selectedJourneyId)
   const departureTime = selectedJourney?.schedule?.departure_time ?? ''
   const trainNumber = selectedJourney?.schedule?.train_number ?? ''
 
-  const boardTime = departureTime && fromStation
-    ? estimatedArrival(departureTime, fromStation.distance_from_origin_km) : null
-  const alightTime = departureTime && toStation
-    ? estimatedArrival(departureTime, toStation.distance_from_origin_km) : null
+  const boardTime =
+    departureTime && fromStation
+      ? estimatedArrival(departureTime, fromStation.distance_from_origin_km)
+      : null
+  const alightTime =
+    departureTime && toStation
+      ? estimatedArrival(departureTime, toStation.distance_from_origin_km)
+      : null
 
   function handleSelect(coachTypeId: string) {
     navigate('/seats', {
-      state: { journeyId: selectedJourneyId, fromId, toId, coachTypeId, departureTime, trainNumber, passengers },
+      state: {
+        journeyId: selectedJourneyId,
+        fromId,
+        toId,
+        coachTypeId,
+        departureTime,
+        trainNumber,
+        passengers,
+      },
     })
   }
 
@@ -156,20 +188,25 @@ export default function AvailabilityPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6">
-
         {/* Step indicator */}
         <div className="flex items-center mb-6">
           {steps.map((step, i) => (
             <div key={step} className="flex items-center flex-1 last:flex-none">
               <div className="flex items-center gap-2">
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                  i < currentStep ? 'bg-green-500 text-white'
-                  : i === currentStep ? 'bg-blue-700 text-white'
-                  : 'bg-gray-200 text-gray-500'
-                }`}>
+                <span
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                    i < currentStep
+                      ? 'bg-green-500 text-white'
+                      : i === currentStep
+                        ? 'bg-blue-700 text-white'
+                        : 'bg-gray-200 text-gray-500'
+                  }`}
+                >
                   {i < currentStep ? '✓' : i + 1}
                 </span>
-                <span className={`text-xs hidden sm:block ${i === currentStep ? 'font-semibold text-blue-700' : 'text-gray-400'}`}>
+                <span
+                  className={`text-xs hidden sm:block ${i === currentStep ? 'font-semibold text-blue-700' : 'text-gray-400'}`}
+                >
                   {step}
                 </span>
               </div>
@@ -191,19 +228,32 @@ export default function AvailabilityPage() {
           </div>
           <div className="flex items-center gap-1">
             <Users size={14} className="text-gray-400" />
-            <span>{passengers} passenger{passengers > 1 ? 's' : ''}</span>
+            <span>
+              {passengers} passenger{passengers > 1 ? 's' : ''}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <Clock size={14} className="text-gray-400" />
-            <span>{new Date(date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            <span>
+              {new Date(date).toLocaleDateString('en-GB', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </span>
           </div>
-          <Link to="/" className="ml-auto text-xs text-blue-600 hover:underline">Modify</Link>
+          <Link to="/" className="ml-auto text-xs text-blue-600 hover:underline">
+            Modify
+          </Link>
         </div>
 
         {/* ── Step A: Select Train ── */}
         <div className="mb-6">
           <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-blue-700 text-white text-xs font-bold flex items-center justify-center">A</span>
+            <span className="w-6 h-6 rounded-full bg-blue-700 text-white text-xs font-bold flex items-center justify-center">
+              A
+            </span>
             Select a Train
           </h2>
 
@@ -217,11 +267,15 @@ export default function AvailabilityPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {journeysWithSchedule.map(j => {
+              {journeysWithSchedule.map((j) => {
                 const dep = j.schedule?.departure_time ?? ''
                 const num = j.schedule?.train_number ?? ''
-                const board = dep && fromStation ? estimatedArrival(dep, fromStation.distance_from_origin_km) : ''
-                const alight = dep && toStation ? estimatedArrival(dep, toStation.distance_from_origin_km) : ''
+                const board =
+                  dep && fromStation
+                    ? estimatedArrival(dep, fromStation.distance_from_origin_km)
+                    : ''
+                const alight =
+                  dep && toStation ? estimatedArrival(dep, toStation.distance_from_origin_km) : ''
                 const selected = selectedJourneyId === j.id
 
                 return (
@@ -235,24 +289,30 @@ export default function AvailabilityPage() {
                     }`}
                   >
                     {/* Radio dot */}
-                    <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                      selected ? 'border-blue-600' : 'border-gray-300'
-                    }`}>
+                    <div
+                      className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                        selected ? 'border-blue-600' : 'border-gray-300'
+                      }`}
+                    >
                       {selected && <div className="w-2 h-2 rounded-full bg-blue-600" />}
                     </div>
 
                     {/* Train icon + name */}
                     <div className="flex items-center gap-3 flex-1">
-                      <div className={`w-10 h-10 rounded flex items-center justify-center shrink-0 ${
-                        selected ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-500'
-                      }`}>
+                      <div
+                        className={`w-10 h-10 rounded flex items-center justify-center shrink-0 ${
+                          selected ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
                         <Train size={18} />
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900 text-sm">
                           {TRAIN_NAMES[num] ?? `Train ${num}`}
                         </p>
-                        <p className="text-xs text-gray-400">#{num} · Departs {fmtDepartureTime(dep)}</p>
+                        <p className="text-xs text-gray-400">
+                          #{num} · Departs {fmtDepartureTime(dep)}
+                        </p>
                       </div>
                     </div>
 
@@ -272,11 +332,13 @@ export default function AvailabilityPage() {
                     </div>
 
                     {/* Status */}
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
-                      j.status === 'SCHEDULED'
-                        ? 'bg-green-50 text-green-700 border border-green-200'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                        j.status === 'SCHEDULED'
+                          ? 'bg-green-50 text-green-700 border border-green-200'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
                       {j.status}
                     </span>
                   </button>
@@ -290,7 +352,9 @@ export default function AvailabilityPage() {
         {selectedJourneyId && (
           <div>
             <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-blue-700 text-white text-xs font-bold flex items-center justify-center">B</span>
+              <span className="w-6 h-6 rounded-full bg-blue-700 text-white text-xs font-bold flex items-center justify-center">
+                B
+              </span>
               Select a Class
               {boardTime && alightTime && (
                 <span className="ml-auto text-xs text-gray-400 font-normal flex items-center gap-1">
@@ -307,22 +371,27 @@ export default function AvailabilityPage() {
                 const hasEnough = avail.availableSeats >= passengers
                 const soldOut = !avail.loading && avail.availableSeats === 0
 
-                const badgeColor = ct.color === 'amber'
-                  ? 'bg-amber-100 text-amber-800 border-amber-200'
-                  : ct.color === 'blue'
-                  ? 'bg-blue-100 text-blue-800 border-blue-200'
-                  : 'bg-gray-100 text-gray-700 border-gray-200'
+                const badgeColor =
+                  ct.color === 'amber'
+                    ? 'bg-amber-100 text-amber-800 border-amber-200'
+                    : ct.color === 'blue'
+                      ? 'bg-blue-100 text-blue-800 border-blue-200'
+                      : 'bg-gray-100 text-gray-700 border-gray-200'
 
                 return (
                   <div
                     key={ct.id}
                     className={`bg-white border rounded overflow-hidden transition-all ${
-                      soldOut ? 'opacity-60 border-gray-200' : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                      soldOut
+                        ? 'opacity-60 border-gray-200'
+                        : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
                     }`}
                   >
                     <div className="flex items-center gap-4 px-5 py-4">
                       {/* Badge */}
-                      <div className={`shrink-0 w-12 h-12 rounded border-2 flex items-center justify-center text-lg font-bold ${badgeColor}`}>
+                      <div
+                        className={`shrink-0 w-12 h-12 rounded border-2 flex items-center justify-center text-lg font-bold ${badgeColor}`}
+                      >
                         {ct.badge}
                       </div>
 
@@ -330,8 +399,8 @@ export default function AvailabilityPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="font-semibold text-gray-900 text-sm">{ct.label}</p>
-                          {!avail.loading && (
-                            soldOut ? (
+                          {!avail.loading &&
+                            (soldOut ? (
                               <span className="flex items-center gap-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
                                 <XCircle size={10} /> Sold Out
                               </span>
@@ -343,8 +412,7 @@ export default function AvailabilityPage() {
                               <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
                                 Limited
                               </span>
-                            )
-                          )}
+                            ))}
                         </div>
                         <p className="text-xs text-gray-500">{ct.description}</p>
                       </div>
@@ -355,7 +423,9 @@ export default function AvailabilityPage() {
                           <Loader2 size={16} className="animate-spin text-gray-400 mx-auto" />
                         ) : (
                           <>
-                            <p className={`text-2xl font-bold ${avail.availableSeats === 0 ? 'text-red-500' : 'text-gray-900'}`}>
+                            <p
+                              className={`text-2xl font-bold ${avail.availableSeats === 0 ? 'text-red-500' : 'text-gray-900'}`}
+                            >
                               {avail.availableSeats}
                             </p>
                             <p className="text-xs text-gray-400">seats left</p>
@@ -365,10 +435,14 @@ export default function AvailabilityPage() {
 
                       {/* Fare */}
                       <div className="shrink-0 text-right px-4 border-l border-gray-100">
-                        <p className="text-lg font-bold text-gray-900">LKR {farePerSeat.toFixed(0)}</p>
+                        <p className="text-lg font-bold text-gray-900">
+                          LKR {farePerSeat.toFixed(0)}
+                        </p>
                         <p className="text-xs text-gray-400">per seat</p>
                         {passengers > 1 && (
-                          <p className="text-xs text-blue-600 font-medium">Total: LKR {totalFare.toFixed(0)}</p>
+                          <p className="text-xs text-blue-600 font-medium">
+                            Total: LKR {totalFare.toFixed(0)}
+                          </p>
                         )}
                       </div>
 

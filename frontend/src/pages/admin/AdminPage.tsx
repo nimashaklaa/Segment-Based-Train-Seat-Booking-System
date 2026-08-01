@@ -13,11 +13,11 @@ type Tab = 'dashboard' | 'stations' | 'routes' | 'schedules' | 'journeys' | 'coa
 
 const NAV: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={15} /> },
-  { id: 'stations',  label: 'Stations',  icon: <MapPin size={15} /> },
-  { id: 'routes',    label: 'Routes',    icon: <RouteIcon size={15} /> },
+  { id: 'stations', label: 'Stations', icon: <MapPin size={15} /> },
+  { id: 'routes', label: 'Routes', icon: <RouteIcon size={15} /> },
   { id: 'schedules', label: 'Schedules', icon: <Train size={15} /> },
-  { id: 'journeys',  label: 'Journeys',  icon: <Calendar size={15} /> },
-  { id: 'coaches',   label: 'Coaches',   icon: <Bus size={15} /> },
+  { id: 'journeys', label: 'Journeys', icon: <Calendar size={15} /> },
+  { id: 'coaches', label: 'Coaches', icon: <Bus size={15} /> },
 ]
 
 export default function AdminPage() {
@@ -31,10 +31,12 @@ export default function AdminPage() {
         {/* Sidebar */}
         <aside className="w-56 shrink-0 bg-white border-r border-gray-200 shadow-sm">
           <div className="px-4 py-4 border-b border-gray-100">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Administration</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+              Administration
+            </p>
           </div>
           <nav className="py-2">
-            {NAV.map(item => (
+            {NAV.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setTab(item.id)}
@@ -44,7 +46,9 @@ export default function AdminPage() {
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <span className={tab === item.id ? 'text-blue-600' : 'text-gray-400'}>{item.icon}</span>
+                <span className={tab === item.id ? 'text-blue-600' : 'text-gray-400'}>
+                  {item.icon}
+                </span>
                 {item.label}
               </button>
             ))}
@@ -54,11 +58,11 @@ export default function AdminPage() {
         {/* Content */}
         <main className="flex-1 overflow-y-auto">
           {tab === 'dashboard' && <DashboardTab />}
-          {tab === 'stations'  && <StationsTab />}
-          {tab === 'routes'    && <RoutesTab />}
+          {tab === 'stations' && <StationsTab />}
+          {tab === 'routes' && <RoutesTab />}
           {tab === 'schedules' && <SchedulesTab />}
-          {tab === 'journeys'  && <JourneysTab />}
-          {tab === 'coaches'   && <CoachesTab />}
+          {tab === 'journeys' && <JourneysTab />}
+          {tab === 'coaches' && <CoachesTab />}
         </main>
       </div>
 

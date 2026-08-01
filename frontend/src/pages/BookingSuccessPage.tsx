@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle, ChevronRight, Printer } from 'lucide-react'
-import type { Booking, Station } from '../api'
+import type { Booking, Station } from '../types'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
 
 const TRAIN_NAMES: Record<string, string> = {
@@ -22,22 +22,29 @@ export default function BookingSuccessPage() {
   const navigate = useNavigate()
   const state = location.state as LocationState | null
 
-  if (!state) { navigate('/'); return null }
+  if (!state) {
+    navigate('/')
+    return null
+  }
   const { booking, fromStation, toStation, departureTime, trainNumber } = state
 
-  const boardTime = departureTime && fromStation
-    ? estimatedArrival(departureTime, fromStation.distance_from_origin_km)
-    : null
-  const alightTime = departureTime && toStation
-    ? estimatedArrival(departureTime, toStation.distance_from_origin_km)
-    : null
+  const boardTime =
+    departureTime && fromStation
+      ? estimatedArrival(departureTime, fromStation.distance_from_origin_km)
+      : null
+  const alightTime =
+    departureTime && toStation
+      ? estimatedArrival(departureTime, toStation.distance_from_origin_km)
+      : null
 
   return (
     <div>
       {/* Breadcrumb */}
       <div className="bg-blue-700 text-white">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-2 text-sm text-blue-200">
-          <Link to="/" className="hover:text-white transition-colors">Home</Link>
+          <Link to="/" className="hover:text-white transition-colors">
+            Home
+          </Link>
           <ChevronRight size={14} />
           <span className="text-white font-medium">Booking Confirmed</span>
         </div>
@@ -69,7 +76,9 @@ export default function BookingSuccessPage() {
             <div>
               <p className="font-bold text-sm">Sri Lanka Railways</p>
               <p className="text-blue-200 text-xs">
-                {trainNumber ? `Train #${trainNumber} · ${TRAIN_NAMES[trainNumber] ?? ''}` : 'Train Ticket'}
+                {trainNumber
+                  ? `Train #${trainNumber} · ${TRAIN_NAMES[trainNumber] ?? ''}`
+                  : 'Train Ticket'}
                 {departureTime ? ` · Departs ${fmtDepartureTime(departureTime)}` : ''}
               </p>
             </div>
@@ -91,14 +100,22 @@ export default function BookingSuccessPage() {
               <div className="flex-1 mx-4 flex flex-col items-center gap-1">
                 <div className="flex items-center w-full">
                   <div className="flex-1 border-t-2 border-dashed border-gray-200" />
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mx-2 text-gray-400">
-                    <path d="M4 15.5A3.5 3.5 0 0 0 7.5 19h9a3.5 3.5 0 0 0 3.5-3.5V9a5 5 0 0 0-5-5h-4A5 5 0 0 0 6 9v.5H4v6Z"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-5 h-5 mx-2 text-gray-400"
+                  >
+                    <path d="M4 15.5A3.5 3.5 0 0 0 7.5 19h9a3.5 3.5 0 0 0 3.5-3.5V9a5 5 0 0 0-5-5h-4A5 5 0 0 0 6 9v.5H4v6Z" />
                   </svg>
                   <div className="flex-1 border-t-2 border-dashed border-gray-200" />
                 </div>
                 {fromStation && toStation && (
                   <p className="text-xs text-gray-400">
-                    {Math.abs(parseFloat(toStation.distance_from_origin_km) - parseFloat(fromStation.distance_from_origin_km))} km
+                    {Math.abs(
+                      parseFloat(toStation.distance_from_origin_km) -
+                        parseFloat(fromStation.distance_from_origin_km),
+                    )}{' '}
+                    km
                   </p>
                 )}
               </div>
@@ -119,7 +136,7 @@ export default function BookingSuccessPage() {
               { label: 'Seat', value: booking.seat_id.slice(-6).toUpperCase() },
               { label: 'Fare', value: `LKR ${parseFloat(booking.fare).toFixed(2)}` },
               { label: 'Date', value: new Date(booking.created_at).toLocaleDateString('en-GB') },
-            ].map(item => (
+            ].map((item) => (
               <div key={item.label}>
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{item.label}</p>
                 <p className="text-sm font-semibold text-gray-800">{item.value}</p>

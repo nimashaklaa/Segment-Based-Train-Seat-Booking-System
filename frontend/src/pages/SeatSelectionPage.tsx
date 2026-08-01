@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, User, Mail, Loader2, AlertTriangle, Clock, MapPin } from 'lucide-react'
-import { api } from '../api'
-import type { Seat, Coach, Station } from '../api'
+import {
+  ArrowLeft,
+  ChevronRight,
+  User,
+  Mail,
+  Loader2,
+  AlertTriangle,
+  Clock,
+  MapPin,
+} from 'lucide-react'
+import { request } from '../services/http'
+import type { Seat, Coach, Station, Booking } from '../types'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
 
 const TRAIN_NAMES: Record<string, string> = {
@@ -37,54 +46,78 @@ export default function SeatSelectionPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!state) { navigate('/'); return }
+    if (!state) {
+      navigate('/')
+      return
+    }
     const { journeyId, fromId, toId, coachTypeId } = state
     Promise.all([
-      api.getAvailableSeats(journeyId, fromId, toId, coachTypeId),
-      api.listCoaches(coachTypeId),
-      api.listStations('aaaaaaaa-0000-0000-0000-000000000001'),
+      request<Seat[]>(
+        `/seats/available?journey_id=${journeyId}&from_station_id=${fromId}&to_station_id=${toId}&coach_type_id=${coachTypeId}`,
+      ),
+      request<Coach[]>(`/coaches?coach_type_id=${coachTypeId}`),
+      request<Station[]>(`/stations?route_id=aaaaaaaa-0000-0000-0000-000000000001`),
     ])
-      .then(([s, c, st]) => { setSeats(s); setCoaches(c); setStations(st) })
-      .catch(err => setError(err.message))
+      .then(([s, c, st]) => {
+        setSeats(s)
+        setCoaches(c)
+        setStations(st)
+      })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
 
   if (!state) return null
   const { journeyId, fromId, toId, departureTime, trainNumber } = state
 
-  const fromStation = stations.find(s => s.id === fromId)
-  const toStation = stations.find(s => s.id === toId)
+  const fromStation = stations.find((s) => s.id === fromId)
+  const toStation = stations.find((s) => s.id === toId)
 
   // Stations between from and to (inclusive), in order
   const routeSegment = stations.filter(
-    s => s.sequence_order >= (fromStation?.sequence_order ?? 0) &&
-         s.sequence_order <= (toStation?.sequence_order ?? 0)
+    (s) =>
+      s.sequence_order >= (fromStation?.sequence_order ?? 0) &&
+      s.sequence_order <= (toStation?.sequence_order ?? 0),
   )
 
   const seatsByCoach = coaches.reduce<Record<string, Seat[]>>((acc, c) => {
-    acc[c.id] = seats.filter(s => s.coach_id === c.id)
+    acc[c.id] = seats.filter((s) => s.coach_id === c.id)
     return acc
   }, {})
 
-  const fare = fromStation && toStation
-    ? ((parseFloat(toStation.distance_from_origin_km) - parseFloat(fromStation.distance_from_origin_km)) * 2.5).toFixed(2)
-    : null
+  const fare =
+    fromStation && toStation
+      ? (
+          (parseFloat(toStation.distance_from_origin_km) -
+            parseFloat(fromStation.distance_from_origin_km)) *
+          2.5
+        ).toFixed(2)
+      : null
 
   async function handleBook(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedSeat) return
-    if (!passengerName.trim() || !passengerEmail.trim()) { setError('Name and email are required.'); return }
-    setError(''); setBooking(true)
+    if (!passengerName.trim() || !passengerEmail.trim()) {
+      setError('Name and email are required.')
+      return
+    }
+    setError('')
+    setBooking(true)
     try {
-      const b = await api.createBooking({
-        journey_id: journeyId,
-        seat_id: selectedSeat.id,
-        from_station_id: fromId,
-        to_station_id: toId,
-        passenger_name: passengerName.trim(),
-        passenger_email: passengerEmail.trim(),
+      const b = await request<Booking>('/bookings', {
+        method: 'POST',
+        body: JSON.stringify({
+          journey_id: journeyId,
+          seat_id: selectedSeat.id,
+          from_station_id: fromId,
+          to_station_id: toId,
+          passenger_name: passengerName.trim(),
+          passenger_email: passengerEmail.trim(),
+        }),
       })
-      navigate('/booking-success', { state: { booking: b, fromStation, toStation, departureTime, trainNumber } })
+      navigate('/booking-success', {
+        state: { booking: b, fromStation, toStation, departureTime, trainNumber },
+      })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Booking failed')
       setBooking(false)
@@ -97,7 +130,10 @@ export default function SeatSelectionPage() {
       <div className="bg-blue-700 text-white">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-blue-200">
-            <button onClick={() => navigate(-1)} className="hover:text-white transition-colors flex items-center gap-1">
+            <button
+              onClick={() => navigate(-1)}
+              className="hover:text-white transition-colors flex items-center gap-1"
+            >
               <ArrowLeft size={14} /> Availability
             </button>
             <ChevronRight size={14} />
@@ -105,7 +141,8 @@ export default function SeatSelectionPage() {
           </div>
           {trainNumber && (
             <span className="text-xs text-blue-200">
-              #{trainNumber} {TRAIN_NAMES[trainNumber] ?? ''} · Dep. {fmtDepartureTime(departureTime)}
+              #{trainNumber} {TRAIN_NAMES[trainNumber] ?? ''} · Dep.{' '}
+              {fmtDepartureTime(departureTime)}
             </span>
           )}
         </div>
@@ -113,10 +150,8 @@ export default function SeatSelectionPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-6">
         <div className="flex flex-col lg:flex-row gap-6">
-
           {/* ── Left: Route timeline + seat map ── */}
           <div className="flex-1 space-y-5">
-
             {/* Route timeline */}
             {fromStation && toStation && departureTime && (
               <div className="bg-white border border-gray-200 rounded overflow-hidden">
@@ -135,13 +170,18 @@ export default function SeatSelectionPage() {
                         const isFrom = station.id === fromId
                         const isTo = station.id === toId
                         const isEndpoint = isFrom || isTo
-                        const arrTime = estimatedArrival(departureTime, station.distance_from_origin_km)
+                        const arrTime = estimatedArrival(
+                          departureTime,
+                          station.distance_from_origin_km,
+                        )
 
                         return (
                           <div key={station.id} className="flex items-center gap-3 py-2">
                             {/* Time */}
                             <div className="w-20 text-right shrink-0">
-                              <span className={`text-xs font-mono font-semibold ${isEndpoint ? 'text-blue-700' : 'text-gray-400'}`}>
+                              <span
+                                className={`text-xs font-mono font-semibold ${isEndpoint ? 'text-blue-700' : 'text-gray-400'}`}
+                              >
                                 {arrTime}
                               </span>
                             </div>
@@ -158,17 +198,25 @@ export default function SeatSelectionPage() {
                             {/* Station name + distance */}
                             <div className="flex-1 flex items-center justify-between">
                               <div>
-                                <span className={`text-sm ${isEndpoint ? 'font-semibold text-gray-900' : 'text-gray-500'}`}>
+                                <span
+                                  className={`text-sm ${isEndpoint ? 'font-semibold text-gray-900' : 'text-gray-500'}`}
+                                >
                                   {station.name}
                                 </span>
                                 {isFrom && (
-                                  <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">Board</span>
+                                  <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                                    Board
+                                  </span>
                                 )}
                                 {isTo && (
-                                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">Alight</span>
+                                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">
+                                    Alight
+                                  </span>
                                 )}
                               </div>
-                              <span className="text-xs text-gray-400">{station.distance_from_origin_km} km</span>
+                              <span className="text-xs text-gray-400">
+                                {station.distance_from_origin_km} km
+                              </span>
                             </div>
                           </div>
                         )
@@ -181,16 +229,18 @@ export default function SeatSelectionPage() {
                     <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-6 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <MapPin size={11} className="text-blue-500" />
-                        {parseFloat(toStation.distance_from_origin_km) - parseFloat(fromStation.distance_from_origin_km)} km segment
+                        {parseFloat(toStation.distance_from_origin_km) -
+                          parseFloat(fromStation.distance_from_origin_km)}{' '}
+                        km segment
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock size={11} className="text-blue-500" />
-                        {estimatedArrival(departureTime, fromStation.distance_from_origin_km)} →{' '}
-                        {estimatedArrival(departureTime, toStation.distance_from_origin_km)}
+                        {estimatedArrival(
+                          departureTime,
+                          fromStation.distance_from_origin_km,
+                        )} → {estimatedArrival(departureTime, toStation.distance_from_origin_km)}
                       </span>
-                      <span className="ml-auto font-semibold text-gray-700">
-                        LKR {fare}
-                      </span>
+                      <span className="ml-auto font-semibold text-gray-700">LKR {fare}</span>
                     </div>
                   )}
                 </div>
@@ -221,11 +271,13 @@ export default function SeatSelectionPage() {
                 <div className="p-12 text-center">
                   <AlertTriangle size={32} className="mx-auto text-amber-400 mb-3" />
                   <p className="font-semibold text-gray-700">No seats available for this segment</p>
-                  <p className="text-sm text-gray-400 mt-1">Try a different station pair or class.</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Try a different station pair or class.
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {coaches.map(coach => {
+                  {coaches.map((coach) => {
                     const cs = seatsByCoach[coach.id] ?? []
                     if (cs.length === 0) return null
                     return (
@@ -234,7 +286,7 @@ export default function SeatSelectionPage() {
                           {coach.coach_number}
                         </p>
                         <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 gap-1.5">
-                          {cs.map(seat => (
+                          {cs.map((seat) => (
                             <button
                               key={seat.id}
                               onClick={() => setSelectedSeat(seat)}
@@ -277,13 +329,18 @@ export default function SeatSelectionPage() {
 
                 <form onSubmit={handleBook} className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Full Name</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Full Name
+                    </label>
                     <div className="relative">
-                      <User size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <User
+                        size={13}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
                       <input
                         type="text"
                         value={passengerName}
-                        onChange={e => setPassengerName(e.target.value)}
+                        onChange={(e) => setPassengerName(e.target.value)}
                         placeholder="e.g. Amal Perera"
                         className="w-full border border-gray-300 rounded pl-8 pr-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                       />
@@ -292,20 +349,27 @@ export default function SeatSelectionPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
                     <div className="relative">
-                      <Mail size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <Mail
+                        size={13}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
                       <input
                         type="email"
                         value={passengerEmail}
-                        onChange={e => setPassengerEmail(e.target.value)}
+                        onChange={(e) => setPassengerEmail(e.target.value)}
                         placeholder="you@example.com"
                         className="w-full border border-gray-300 rounded pl-8 pr-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">Needed to retrieve your ticket later</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Needed to retrieve your ticket later
+                    </p>
                   </div>
 
                   {error && (
-                    <p className="text-red-600 text-xs bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>
+                    <p className="text-red-600 text-xs bg-red-50 border border-red-200 rounded px-3 py-2">
+                      {error}
+                    </p>
                   )}
 
                   <button
@@ -320,7 +384,6 @@ export default function SeatSelectionPage() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>

@@ -30,10 +30,16 @@ export default function Header() {
           {navLink('/', 'Home')}
           {navLink('/my-booking', 'My Booking')}
           {navLink('/admin', 'Admin')}
-          <a href="#gallery" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
+          <a
+            href="#gallery"
+            className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+          >
             Gallery
           </a>
-          <a href="#about" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
+          <a
+            href="#about"
+            className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+          >
             About
           </a>
         </nav>

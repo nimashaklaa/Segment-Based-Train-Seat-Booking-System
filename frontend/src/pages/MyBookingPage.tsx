@@ -1,8 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, ChevronRight, Ticket, Mail, Loader2, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
-import { api } from '../api'
-import type { Booking } from '../api'
+import {
+  Search,
+  ChevronRight,
+  Ticket,
+  Mail,
+  Loader2,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react'
+import { request } from '../services/http'
+import type { Booking } from '../types'
 
 export default function MyBookingPage() {
   const [bookingId, setBookingId] = useState('')
@@ -15,9 +24,16 @@ export default function MyBookingPage() {
 
   async function handleLookup(e: React.FormEvent) {
     e.preventDefault()
-    setError(''); setBooking(null); setCancelled(false); setLoading(true)
+    setError('')
+    setBooking(null)
+    setCancelled(false)
+    setLoading(true)
     try {
-      setBooking(await api.getBooking(bookingId.trim(), email.trim()))
+      setBooking(
+        await request<Booking>(
+          `/bookings/${bookingId.trim()}?email=${encodeURIComponent(email.trim())}`,
+        ),
+      )
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Booking not found')
     } finally {
@@ -27,11 +43,14 @@ export default function MyBookingPage() {
 
   async function handleCancel() {
     if (!booking) return
-    setCancelling(true); setError('')
+    setCancelling(true)
+    setError('')
     try {
-      await api.cancelBooking(booking.id, email.trim())
+      await request<Booking>(`/bookings/${booking.id}?email=${encodeURIComponent(email.trim())}`, {
+        method: 'DELETE',
+      })
       setCancelled(true)
-      setBooking(b => b ? { ...b, status: 'cancelled' } : b)
+      setBooking((b) => (b ? { ...b, status: 'cancelled' } : b))
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Cancellation failed')
     } finally {
@@ -41,11 +60,12 @@ export default function MyBookingPage() {
 
   return (
     <div>
-
       {/* Breadcrumb */}
       <div className="bg-blue-700 text-white">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-2 text-sm text-blue-200">
-          <Link to="/" className="hover:text-white transition-colors">Home</Link>
+          <Link to="/" className="hover:text-white transition-colors">
+            Home
+          </Link>
           <ChevronRight size={14} />
           <span className="text-white font-medium">My Booking</span>
         </div>
@@ -68,11 +88,14 @@ export default function MyBookingPage() {
                 Booking Reference ID
               </label>
               <div className="relative">
-                <Ticket size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Ticket
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
                 <input
                   type="text"
                   value={bookingId}
-                  onChange={e => setBookingId(e.target.value)}
+                  onChange={(e) => setBookingId(e.target.value)}
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                   className="w-full border border-gray-300 rounded pl-9 pr-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
@@ -83,11 +106,14 @@ export default function MyBookingPage() {
                 Email Address
               </label>
               <div className="relative">
-                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Mail
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
                 <input
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   className="w-full border border-gray-300 rounded pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
@@ -117,11 +143,13 @@ export default function MyBookingPage() {
           <div className="bg-white border border-gray-200 rounded overflow-hidden shadow-sm">
             <div className="bg-blue-700 text-white px-4 py-2.5 flex items-center justify-between">
               <p className="text-sm font-semibold">Booking Details</p>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${
-                booking.status === 'confirmed'
-                  ? 'bg-green-400 text-green-900'
-                  : 'bg-red-400 text-red-900'
-              }`}>
+              <span
+                className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${
+                  booking.status === 'confirmed'
+                    ? 'bg-green-400 text-green-900'
+                    : 'bg-red-400 text-red-900'
+                }`}
+              >
                 {booking.status}
               </span>
             </div>
@@ -132,10 +160,15 @@ export default function MyBookingPage() {
                   { label: 'Passenger', value: booking.passenger_name },
                   { label: 'Email', value: booking.passenger_email },
                   { label: 'Fare', value: `LKR ${parseFloat(booking.fare).toFixed(2)}` },
-                  { label: 'Booked On', value: new Date(booking.created_at).toLocaleDateString('en-GB') },
-                ].map(item => (
+                  {
+                    label: 'Booked On',
+                    value: new Date(booking.created_at).toLocaleDateString('en-GB'),
+                  },
+                ].map((item) => (
                   <div key={item.label}>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{item.label}</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                      {item.label}
+                    </p>
                     <p className="text-sm font-semibold text-gray-800 truncate">{item.value}</p>
                   </div>
                 ))}
@@ -162,7 +195,11 @@ export default function MyBookingPage() {
                     disabled={cancelling}
                     className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700 transition-colors disabled:opacity-50"
                   >
-                    {cancelling ? <Loader2 size={13} className="animate-spin" /> : <XCircle size={13} />}
+                    {cancelling ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <XCircle size={13} />
+                    )}
                     {cancelling ? 'Cancelling...' : 'Cancel'}
                   </button>
                 </div>
