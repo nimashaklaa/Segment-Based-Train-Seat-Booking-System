@@ -18,6 +18,7 @@ import (
 	"github.com/nimashaklaa/train-seat-booking/internal/db"
 	"github.com/nimashaklaa/train-seat-booking/internal/handler"
 	"github.com/nimashaklaa/train-seat-booking/internal/mailer"
+	"github.com/nimashaklaa/train-seat-booking/internal/seed"
 )
 
 func main() {
@@ -72,6 +73,12 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 	log.Println("Migrations applied successfully")
+
+	if os.Getenv("SEED_ON_STARTUP") == "true" {
+		if err := seed.Run(database); err != nil {
+			log.Fatalf("Failed to seed database: %v", err)
+		}
+	}
 
 	queries := db.New(database)
 	mail := mailer.New(smtpHost, smtpPort, smtpFrom)
