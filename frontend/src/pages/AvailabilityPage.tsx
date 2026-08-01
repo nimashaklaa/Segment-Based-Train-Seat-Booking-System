@@ -25,6 +25,7 @@ const COACH_TYPES = [
     fareMultiplier: 1.8,
     badge: '1st',
     color: 'amber',
+    unreserved: false,
   },
   {
     id: 'cccccccc-0000-0000-0000-000000000002',
@@ -33,6 +34,7 @@ const COACH_TYPES = [
     fareMultiplier: 1.2,
     badge: '2nd',
     color: 'blue',
+    unreserved: false,
   },
   {
     id: 'cccccccc-0000-0000-0000-000000000003',
@@ -41,6 +43,7 @@ const COACH_TYPES = [
     fareMultiplier: 1.0,
     badge: '3rd',
     color: 'gray',
+    unreserved: true,
   },
 ]
 
@@ -104,8 +107,15 @@ export default function AvailabilityPage() {
     )
 
     COACH_TYPES.forEach((ct, i) => {
+      if (ct.unreserved) {
+        setAvailability((prev) =>
+          prev.map((a, idx) => (idx === i ? { ...a, availableSeats: Infinity, loading: false } : a)),
+        )
+        if (i === COACH_TYPES.length - 1) setLoadingAvail(false)
+        return
+      }
       request<{ id: string }[]>(
-        `/seats/available?journey_id=${selectedJourneyId}&from_station_id=${state.fromId}&to_station_id=${state.toId}&coach_type_id=${ct.id}`,
+        `/seats/available?journey_id=${selectedJourneyId}&from_id=${state.fromId}&to_id=${state.toId}&coach_type_id=${ct.id}`,
       )
         .then((seats) => {
           setAvailability((prev) =>
@@ -368,8 +378,9 @@ export default function AvailabilityPage() {
                 const avail = availability[i] ?? { availableSeats: 0, loading: true }
                 const farePerSeat = baseFare * ct.fareMultiplier
                 const totalFare = farePerSeat * passengers
-                const hasEnough = avail.availableSeats >= passengers
-                const soldOut = !avail.loading && avail.availableSeats === 0
+                const isUnreserved = avail.availableSeats === Infinity
+                const hasEnough = isUnreserved || avail.availableSeats >= passengers
+                const soldOut = !avail.loading && !isUnreserved && avail.availableSeats === 0
 
                 const badgeColor =
                   ct.color === 'amber'
@@ -421,6 +432,11 @@ export default function AvailabilityPage() {
                       <div className="shrink-0 text-center px-4 border-l border-gray-100">
                         {avail.loading ? (
                           <Loader2 size={16} className="animate-spin text-gray-400 mx-auto" />
+                        ) : isUnreserved ? (
+                          <>
+                            <p className="text-sm font-bold text-gray-500">∞</p>
+                            <p className="text-xs text-gray-400">unreserved</p>
+                          </>
                         ) : (
                           <>
                             <p

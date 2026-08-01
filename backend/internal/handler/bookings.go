@@ -1,13 +1,47 @@
 package handler
 
 import (
+	"database/sql"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nimashaklaa/train-seat-booking/internal/mailer"
 	"github.com/nimashaklaa/train-seat-booking/internal/service"
 )
+
+type bookingResponse struct {
+	ID              string    `json:"id"`
+	JourneyID       string    `json:"journey_id"`
+	SeatID          string    `json:"seat_id"`
+	BoardStationID  string    `json:"board_station_id"`
+	AlightStationID string    `json:"alight_station_id"`
+	PassengerName   string    `json:"passenger_name"`
+	PassengerEmail  string    `json:"passenger_email"`
+	Fare            string    `json:"fare"`
+	Status          string    `json:"status"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+func bookingResp(id, journeyID, seatID, boardSt, alightSt, name, email, fare, status string, createdAt sql.NullTime) bookingResponse {
+	t := createdAt.Time
+	if !createdAt.Valid {
+		t = time.Now()
+	}
+	return bookingResponse{
+		ID:              id,
+		JourneyID:       journeyID,
+		SeatID:          seatID,
+		BoardStationID:  boardSt,
+		AlightStationID: alightSt,
+		PassengerName:   name,
+		PassengerEmail:  email,
+		Fare:            fare,
+		Status:          status,
+		CreatedAt:       t,
+	}
+}
 
 // POST /bookings
 func (h *Handler) CreateBooking(m *mailer.Mailer) http.HandlerFunc {
@@ -28,7 +62,7 @@ func (h *Handler) CreateBooking(m *mailer.Mailer) http.HandlerFunc {
 			mapServiceError(w, err)
 			return
 		}
-		writeJSON(w, http.StatusCreated, booking)
+		writeJSON(w, http.StatusCreated, bookingResp(booking.ID, booking.JourneyID, booking.SeatID, booking.BoardStationID, booking.AlightStationID, booking.PassengerName, booking.PassengerEmail, booking.Fare, booking.Status, booking.CreatedAt))
 	}
 }
 
@@ -45,7 +79,7 @@ func (h *Handler) GetBooking(w http.ResponseWriter, r *http.Request) {
 		mapServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, booking)
+	writeJSON(w, http.StatusOK, bookingResp(booking.ID, booking.JourneyID, booking.SeatID, booking.BoardStationID, booking.AlightStationID, booking.PassengerName, booking.PassengerEmail, booking.Fare, booking.Status, booking.CreatedAt))
 }
 
 // DELETE /bookings/{id}?email=
@@ -61,5 +95,5 @@ func (h *Handler) CancelBooking(w http.ResponseWriter, r *http.Request) {
 		mapServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, booking)
+	writeJSON(w, http.StatusOK, bookingResp(booking.ID, booking.JourneyID, booking.SeatID, booking.BoardStationID, booking.AlightStationID, booking.PassengerName, booking.PassengerEmail, booking.Fare, booking.Status, booking.CreatedAt))
 }
