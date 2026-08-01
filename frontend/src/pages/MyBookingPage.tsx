@@ -1,13 +1,10 @@
 import { useState } from 'react'
-import { Search, Ticket, MapPin, User, Mail, CreditCard, XCircle, CheckCircle, Loader2, AlertCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Search, ChevronRight, Ticket, Mail, Loader2, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import { api } from '../api'
 import type { Booking } from '../api'
-import Header from '../components/Header'
-
-type Tab = 'lookup' | 'cancel'
 
 export default function MyBookingPage() {
-  const [tab, setTab] = useState<Tab>('lookup')
   const [bookingId, setBookingId] = useState('')
   const [email, setEmail] = useState('')
   const [booking, setBooking] = useState<Booking | null>(null)
@@ -16,21 +13,11 @@ export default function MyBookingPage() {
   const [error, setError] = useState('')
   const [cancelled, setCancelled] = useState(false)
 
-  function reset() {
-    setBooking(null)
-    setError('')
-    setCancelled(false)
-  }
-
   async function handleLookup(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
-    setBooking(null)
-    setCancelled(false)
-    setLoading(true)
+    setError(''); setBooking(null); setCancelled(false); setLoading(true)
     try {
-      const b = await api.getBooking(bookingId.trim(), email.trim())
-      setBooking(b)
+      setBooking(await api.getBooking(bookingId.trim(), email.trim()))
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Booking not found')
     } finally {
@@ -40,8 +27,7 @@ export default function MyBookingPage() {
 
   async function handleCancel() {
     if (!booking) return
-    setCancelling(true)
-    setError('')
+    setCancelling(true); setError('')
     try {
       await api.cancelBooking(booking.id, email.trim())
       setCancelled(true)
@@ -53,79 +39,64 @@ export default function MyBookingPage() {
     }
   }
 
-  const statusColor = (status: string) =>
-    status === 'confirmed'
-      ? 'bg-emerald-100 text-emerald-700'
-      : status === 'cancelled'
-      ? 'bg-red-100 text-red-700'
-      : 'bg-amber-100 text-amber-700'
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header />
+    <div>
+
+      {/* Breadcrumb */}
+      <div className="bg-blue-700 text-white">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-2 text-sm text-blue-200">
+          <Link to="/" className="hover:text-white transition-colors">Home</Link>
+          <ChevronRight size={14} />
+          <span className="text-white font-medium">My Booking</span>
+        </div>
+      </div>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="font-display text-3xl font-semibold text-gray-900 mb-2">
-          My Booking
-        </h1>
-        <p className="text-gray-500 font-sans text-sm mb-6">
-          Enter your booking ID and email to view or cancel your ticket.
+        <h1 className="text-xl font-bold text-gray-900 mb-1">Manage My Booking</h1>
+        <p className="text-sm text-gray-500 mb-6">
+          Enter your booking reference and email address to view or cancel your ticket.
         </p>
 
-        {/* Tabs */}
-        <div className="flex bg-white border border-gray-200 rounded-xl p-1 mb-6">
-          {(['lookup', 'cancel'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); reset() }}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium font-sans capitalize transition-colors ${
-                tab === t
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t === 'lookup' ? 'Look Up' : 'Cancel Booking'}
-            </button>
-          ))}
-        </div>
-
-        {/* Form */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
-          <form onSubmit={handleLookup} className="space-y-4">
+        {/* Lookup form */}
+        <div className="bg-white border border-gray-200 rounded overflow-hidden shadow-sm mb-6">
+          <div className="bg-blue-700 text-white px-4 py-2.5">
+            <p className="text-sm font-semibold">Booking Lookup</p>
+          </div>
+          <form onSubmit={handleLookup} className="p-5 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1 font-sans">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
                 Booking Reference ID
               </label>
               <div className="relative">
-                <Ticket size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Ticket size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   value={bookingId}
                   onChange={e => setBookingId(e.target.value)}
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  className="w-full h-11 pl-9 pr-4 border border-gray-200 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-gray-800 text-sm"
+                  className="w-full border border-gray-300 rounded pl-9 pr-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1 font-sans">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
                 Email Address
               </label>
               <div className="relative">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full h-11 pl-9 pr-4 border border-gray-200 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-sans text-gray-800 text-sm"
+                  className="w-full border border-gray-300 rounded pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-red-600 text-sm font-sans bg-red-50 rounded-xl px-4 py-3">
-                <AlertCircle size={16} />
+              <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded px-3 py-2">
+                <AlertTriangle size={14} />
                 {error}
               </div>
             )}
@@ -133,87 +104,67 @@ export default function MyBookingPage() {
             <button
               type="submit"
               disabled={loading || !bookingId || !email}
-              className="w-full h-11 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold font-sans flex items-center justify-center gap-2 hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="flex items-center justify-center gap-2 px-5 py-2 bg-blue-700 text-white text-sm font-semibold rounded hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-              {loading ? 'Looking up...' : 'Find Booking'}
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              {loading ? 'Searching...' : 'Find Booking'}
             </button>
           </form>
         </div>
 
         {/* Result */}
         {booking && (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 flex items-center justify-between text-white">
-              <p className="font-display text-lg font-semibold">Booking Details</p>
-              <span className={`text-xs font-sans font-medium px-2 py-1 rounded-full capitalize ${statusColor(booking.status)}`}>
+          <div className="bg-white border border-gray-200 rounded overflow-hidden shadow-sm">
+            <div className="bg-blue-700 text-white px-4 py-2.5 flex items-center justify-between">
+              <p className="text-sm font-semibold">Booking Details</p>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${
+                booking.status === 'confirmed'
+                  ? 'bg-green-400 text-green-900'
+                  : 'bg-red-400 text-red-900'
+              }`}>
                 {booking.status}
               </span>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-400 font-sans font-medium mb-1 flex items-center gap-1">
-                    <User size={11} /> Passenger
-                  </p>
-                  <p className="font-sans font-semibold text-gray-800 text-sm">
-                    {booking.passenger_name}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400 font-sans font-medium mb-1 flex items-center gap-1">
-                    <CreditCard size={11} /> Fare
-                  </p>
-                  <p className="font-sans font-semibold text-emerald-600 text-sm">
-                    LKR {parseFloat(booking.fare).toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400 font-sans font-medium mb-1 flex items-center gap-1">
-                    <MapPin size={11} /> From
-                  </p>
-                  <p className="font-sans text-gray-800 text-sm truncate">
-                    {booking.board_station_id.slice(0, 8)}…
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400 font-sans font-medium mb-1 flex items-center gap-1">
-                    <MapPin size={11} /> To
-                  </p>
-                  <p className="font-sans text-gray-800 text-sm truncate">
-                    {booking.alight_station_id.slice(0, 8)}…
-                  </p>
-                </div>
+            <div className="p-5">
+              <div className="grid grid-cols-2 gap-4 mb-5">
+                {[
+                  { label: 'Passenger', value: booking.passenger_name },
+                  { label: 'Email', value: booking.passenger_email },
+                  { label: 'Fare', value: `LKR ${parseFloat(booking.fare).toFixed(2)}` },
+                  { label: 'Booked On', value: new Date(booking.created_at).toLocaleDateString('en-GB') },
+                ].map(item => (
+                  <div key={item.label}>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{item.label}</p>
+                    <p className="text-sm font-semibold text-gray-800 truncate">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-gray-50 border border-gray-100 rounded px-3 py-2 mb-5">
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Reference</p>
+                <p className="font-mono text-xs text-gray-700 break-all">{booking.id}</p>
               </div>
 
               {cancelled ? (
-                <div className="flex items-center gap-2 bg-red-50 rounded-xl px-4 py-3 text-red-700 font-sans text-sm">
+                <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 text-sm">
                   <XCircle size={16} />
-                  Booking successfully cancelled.
+                  Booking has been cancelled.
                 </div>
-              ) : tab === 'cancel' && booking.status === 'confirmed' ? (
-                <div>
-                  <p className="text-sm text-gray-500 font-sans mb-3">
-                    Are you sure you want to cancel this booking? This cannot be undone.
-                  </p>
+              ) : booking.status === 'confirmed' ? (
+                <div className="flex gap-3">
+                  <div className="flex items-center gap-2 flex-1 text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 text-sm">
+                    <CheckCircle size={15} />
+                    Booking is confirmed.
+                  </div>
                   <button
                     onClick={handleCancel}
                     disabled={cancelling}
-                    className="w-full h-11 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold font-sans flex items-center justify-center gap-2 transition-colors disabled:opacity-50 text-sm"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700 transition-colors disabled:opacity-50"
                   >
-                    {cancelling ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <XCircle size={16} />
-                    )}
-                    {cancelling ? 'Cancelling...' : 'Cancel Booking'}
+                    {cancelling ? <Loader2 size={13} className="animate-spin" /> : <XCircle size={13} />}
+                    {cancelling ? 'Cancelling...' : 'Cancel'}
                   </button>
-                </div>
-              ) : tab === 'lookup' && booking.status === 'confirmed' ? (
-                <div className="flex items-center gap-2 bg-emerald-50 rounded-xl px-4 py-3 text-emerald-700 font-sans text-sm">
-                  <CheckCircle size={16} />
-                  Your booking is confirmed.
                 </div>
               ) : null}
             </div>

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, MapPin, ArrowRight, Train } from 'lucide-react'
+import { ChevronDown, RotateCcw, Search } from 'lucide-react'
 import { api } from '../api'
 import type { Station } from '../api'
-import Header from '../components/Header'
+import heroBg from '../assets/hero.png'
 
 const JOURNEY_ID = '00000000-0000-0000-0000-000000000001'
 const ROUTE_ID = '00000000-0000-0000-0000-000000000001'
@@ -12,198 +12,233 @@ const COACH_TYPES = [
   { id: '00000000-0000-0000-0000-000000000002', label: 'Unreserved' },
 ]
 
+const GALLERY = [
+  { label: 'Nine Arch Bridge', desc: 'Demodara, Ella' },
+  { label: 'Udarata Menike', desc: 'Train No. 1005' },
+  { label: 'Hill Country', desc: 'Nuwara Eliya Pass' },
+]
+
 export default function HomePage() {
   const navigate = useNavigate()
   const [stations, setStations] = useState<Station[]>([])
   const [fromId, setFromId] = useState('')
   const [toId, setToId] = useState('')
   const [coachTypeId, setCoachTypeId] = useState(COACH_TYPES[0].id)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     api.listStations(ROUTE_ID).then(setStations).catch(console.error)
   }, [])
 
+  function handleReset() {
+    setFromId('')
+    setToId('')
+    setCoachTypeId(COACH_TYPES[0].id)
+    setError('')
+  }
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
-    if (!fromId || !toId) {
-      setError('Please select both departure and arrival stations.')
-      return
-    }
-    if (fromId === toId) {
-      setError('Departure and arrival stations must be different.')
-      return
-    }
+    if (!fromId || !toId) { setError('Please select both stations.'); return }
+    if (fromId === toId) { setError('Stations must be different.'); return }
     const from = stations.find(s => s.id === fromId)
     const to = stations.find(s => s.id === toId)
     if (from && to && from.sequence_order >= to.sequence_order) {
-      setError('Departure station must come before arrival station.')
+      setError('Departure must come before arrival.')
       return
     }
     setError('')
-    setLoading(true)
-    navigate('/seats', {
-      state: { journeyId: JOURNEY_ID, fromId, toId, coachTypeId },
-    })
+    navigate('/seats', { state: { journeyId: JOURNEY_ID, fromId, toId, coachTypeId } })
   }
 
-  const fromStation = stations.find(s => s.id === fromId)
-  const toStation = stations.find(s => s.id === toId)
-  const distance =
-    fromStation && toStation
-      ? Math.abs(
-          parseFloat(toStation.distance_from_origin_km) -
-            parseFloat(fromStation.distance_from_origin_km)
-        ).toFixed(1)
-      : null
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header />
+    <div className="font-sans">
 
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white pb-24 pt-12 px-4">
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4">
-              <Train size={40} />
-            </div>
+      {/* ── Hero ── */}
+      <section className="relative h-72 md:h-96 overflow-hidden">
+        <img
+          src={heroBg}
+          alt="Sri Lanka Railway scenic route"
+          className="w-full h-full object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-black/30" />
+      </section>
+
+      {/* ── Search card overlapping hero ── */}
+      <section className="max-w-5xl mx-auto px-4 -mt-28 relative z-10 mb-12">
+        <div className="bg-white rounded shadow-xl overflow-hidden flex flex-col md:flex-row">
+          {/* Blue left panel */}
+          <div className="bg-blue-700 text-white p-8 md:w-56 shrink-0 flex flex-col justify-center">
+            <h1 className="text-3xl font-semibold leading-tight mb-2">
+              Book Your Seat
+            </h1>
+            <p className="text-blue-200 text-sm">Colombo Fort – Badulla line</p>
           </div>
-          <h1 className="font-display text-5xl font-semibold mb-3 tracking-wide">
-            Udarata Menike
-          </h1>
-          <p className="font-handwriting text-xl text-white/80 mb-1">
-            Train No. 1005
-          </p>
-          <p className="text-white/70 text-sm font-sans">
-            Colombo Fort → Badulla · Departs 05:55 · 293km journey
-          </p>
-        </div>
-      </div>
 
-      {/* Search Card */}
-      <div className="max-w-2xl mx-auto px-4 -mt-16 pb-12">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-xl p-8">
-          <h2 className="font-display text-2xl font-semibold text-gray-900 mb-6">
-            Search Seats
-          </h2>
-
-          <form onSubmit={handleSearch} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2 font-sans">
-                From
-              </label>
-              <div className="relative">
-                <MapPin
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500"
-                />
-                <select
-                  value={fromId}
-                  onChange={e => setFromId(e.target.value)}
-                  className="w-full h-12 pl-10 pr-4 border border-gray-200 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-sans text-gray-800"
-                >
-                  <option value="">Select departure station</option>
-                  {stations.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.distance_from_origin_km} km)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2 font-sans">
-                To
-              </label>
-              <div className="relative">
-                <MapPin
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500"
-                />
-                <select
-                  value={toId}
-                  onChange={e => setToId(e.target.value)}
-                  className="w-full h-12 pl-10 pr-4 border border-gray-200 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-sans text-gray-800"
-                >
-                  <option value="">Select arrival station</option>
-                  {stations.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.distance_from_origin_km} km)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2 font-sans">
-                Coach Class
-              </label>
-              <div className="flex gap-3">
-                {COACH_TYPES.map(ct => (
-                  <button
-                    key={ct.id}
-                    type="button"
-                    onClick={() => setCoachTypeId(ct.id)}
-                    className={`flex-1 py-3 rounded-xl font-medium text-sm border transition-colors font-sans ${
-                      coachTypeId === ct.id
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-indigo-300'
-                    }`}
+          {/* Form panel */}
+          <form onSubmit={handleSearch} className="flex-1 p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+              {/* From */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  From
+                </label>
+                <div className="relative">
+                  <select
+                    value={fromId}
+                    onChange={e => setFromId(e.target.value)}
+                    className="w-full appearance-none border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-gray-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   >
-                    {ct.label}
-                  </button>
-                ))}
+                    <option value="">Select station</option>
+                    {stations.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* To */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  To
+                </label>
+                <div className="relative">
+                  <select
+                    value={toId}
+                    onChange={e => setToId(e.target.value)}
+                    className="w-full appearance-none border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-gray-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Select station</option>
+                    {stations.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Coach class */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Class
+                </label>
+                <div className="relative">
+                  <select
+                    value={coachTypeId}
+                    onChange={e => setCoachTypeId(e.target.value)}
+                    className="w-full appearance-none border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-gray-800 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    {COACH_TYPES.map(ct => (
+                      <option key={ct.id} value={ct.id}>{ct.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             </div>
-
-            {distance && (
-              <div className="flex items-center gap-2 text-sm text-gray-500 font-sans bg-blue-50 rounded-xl px-4 py-3">
-                <ArrowRight size={14} className="text-blue-500" />
-                Distance: <span className="font-semibold text-blue-700">{distance} km</span>
-                &nbsp;· Est. fare: <span className="font-semibold text-blue-700">LKR {(parseFloat(distance) * 2.5).toFixed(2)}</span>
-              </div>
-            )}
 
             {error && (
-              <p className="text-red-600 text-sm font-sans bg-red-50 rounded-xl px-4 py-3">
+              <p className="text-red-600 text-xs mb-3 bg-red-50 border border-red-200 rounded px-3 py-2">
                 {error}
               </p>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold font-sans flex items-center justify-center gap-2 hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-60"
-            >
-              <Search size={18} />
-              Search Available Seats
-            </button>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <RotateCcw size={13} />
+                Reset
+              </button>
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 px-6 py-2 text-sm bg-blue-700 text-white rounded hover:bg-blue-800 transition-colors font-semibold"
+              >
+                <Search size={13} />
+                Search
+              </button>
+            </div>
           </form>
         </div>
+      </section>
 
-        {/* Info cards */}
-        <div className="grid grid-cols-3 gap-4 mt-6">
+      {/* ── Stats bar ── */}
+      <section className="max-w-5xl mx-auto px-4 mb-14">
+        <div className="grid grid-cols-3 gap-px bg-gray-200 rounded overflow-hidden border border-gray-200">
           {[
-            { label: 'Stations', value: '16', sub: 'along the route' },
-            { label: 'Distance', value: '293km', sub: 'Colombo to Badulla' },
-            { label: 'Duration', value: '~9h', sub: 'scenic hill country' },
+            { value: '16', label: 'Stations' },
+            { value: '293 km', label: 'Route Length' },
+            { value: '~9 hrs', label: 'Journey Time' },
           ].map(item => (
-            <div
-              key={item.label}
-              className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center"
-            >
-              <p className="font-display text-2xl font-semibold text-indigo-600">
-                {item.value}
-              </p>
-              <p className="text-xs text-gray-500 font-sans mt-1">{item.sub}</p>
+            <div key={item.label} className="bg-white text-center py-5">
+              <p className="text-3xl font-semibold text-blue-700">{item.value}</p>
+              <p className="text-xs text-gray-500 mt-1 uppercase tracking-wide">{item.label}</p>
             </div>
           ))}
         </div>
-      </div>
+      </section>
+
+      {/* ── Gallery ── */}
+      <section id="gallery" className="max-w-5xl mx-auto px-4 mb-16">
+        <h2 className="text-3xl font-semibold text-gray-800 mb-6">Gallery</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {GALLERY.map((item, i) => (
+            <div
+              key={item.label}
+              className="relative rounded overflow-hidden h-44 group cursor-pointer"
+            >
+              <img
+                src={heroBg}
+                alt={item.label}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                style={{ objectPosition: `${i * 30}% center` }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute bottom-0 left-0 p-4 text-white">
+                <p className="font-semibold text-sm">{item.label}</p>
+                <p className="text-xs text-white/70">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── About ── */}
+      <section id="about" className="bg-white border-t border-gray-200 py-12">
+        <div className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+          <div>
+            <h2 className="text-3xl font-semibold text-gray-800 mb-3">
+              About the Route
+            </h2>
+            <p className="text-gray-600 text-sm leading-relaxed mb-3">
+              The Colombo Fort – Badulla line is one of Sri Lanka's most scenic railway routes,
+              passing through the central highlands, tea plantations, and the iconic Nine Arch Bridge
+              at Demodara.
+            </p>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              Train No. 1005 (Udarata Menike) departs Colombo Fort at 05:55 and arrives at Badulla,
+              covering 293 km across 16 stations through some of the island's most breathtaking landscape.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Train Name', value: 'Udarata Menike' },
+              { label: 'Train No.', value: '1005' },
+              { label: 'Departure', value: '05:55 from Colombo Fort' },
+              { label: 'Classes', value: 'Reserved & Unreserved' },
+            ].map(item => (
+              <div key={item.label} className="bg-gray-50 rounded p-3 border border-gray-100">
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{item.label}</p>
+                <p className="text-sm font-semibold text-gray-800">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
     </div>
   )
 }

@@ -1,35 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Rajdhani:wght@400;500;600;700&family=Teko:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css?family=Roboto&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap');
 
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Rajdhani', sans-serif;
-  --font-display: 'Teko', sans-serif;
-  --font-handwriting: 'Permanent Marker', cursive;
-  --font-roboto: 'Roboto', sans-serif;
+  --font-sans: 'Inter', 'Open Sans', system-ui, sans-serif;
 }
 
 @layer base {
-  html {
-    scroll-behavior: smooth;
-  }
-
-  * {
-    box-sizing: border-box;
-  }
-
+  html { scroll-behavior: smooth; }
+  * { box-sizing: border-box; }
   body {
     margin: 0;
     width: 100%;
     min-height: 100vh;
-    overflow-x: hidden;
-    font-family: 'Rajdhani', sans-serif;
+    font-family: 'Inter', 'Open Sans', system-ui, sans-serif;
     background-color: #f8fafc;
+    -webkit-font-smoothing: antialiased;
   }
-
-  #root {
-    min-height: 100vh;
-    width: 100%;
-  }
+  #root { min-height: 100vh; width: 100%; }
 }
