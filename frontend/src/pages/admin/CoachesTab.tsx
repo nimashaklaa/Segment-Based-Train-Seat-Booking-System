@@ -16,7 +16,7 @@ export default function CoachesTab() {
   const [form, setForm] = useState<Form>(empty)
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   function openAdd() {
@@ -100,7 +100,8 @@ export default function CoachesTab() {
                   <option value="">Select type…</option>
                   {coachTypes.map((ct) => (
                     <option key={ct.id} value={ct.id}>
-                      {ct.name} ({ct.seat_capacity} seats)
+                      {ct.name} (
+                      {ct.seat_capacity === 0 ? 'Unreserved' : `${ct.seat_capacity} seats`})
                     </option>
                   ))}
                 </select>
@@ -151,7 +152,9 @@ export default function CoachesTab() {
                     <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-5 py-3 font-medium text-gray-800">{c.coach_number}</td>
                       <td className="px-5 py-3 text-gray-600">{c.coach_type_name}</td>
-                      <td className="px-5 py-3 text-gray-600">{c.seat_capacity}</td>
+                      <td className="px-5 py-3 text-gray-600">
+                        {c.seat_capacity === 0 ? '∞ Unreserved' : c.seat_capacity}
+                      </td>
                       <td className="px-5 py-3 text-right">
                         <button
                           onClick={() => remove(c.id)}

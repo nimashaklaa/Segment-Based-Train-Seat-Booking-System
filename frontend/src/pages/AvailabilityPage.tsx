@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useAvailabilityStore } from '../stores/useAvailabilityStore'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
+import { distanceBetween, calcFareWithMultiplier } from '../utils/fare'
 import type { AvailabilityLocationState as LocationState } from '../types'
 
 export default function AvailabilityPage() {
@@ -39,13 +40,13 @@ export default function AvailabilityPage() {
       navigate('/')
       return
     }
-    load(state.date)
+    void load(state.date)
     return () => reset()
   }, [])
 
   useEffect(() => {
     if (!selectedJourneyId || !state) return
-    loadClassAvailability(selectedJourneyId, state.fromId, state.toId)
+    void loadClassAvailability(selectedJourneyId, state.fromId, state.toId)
   }, [selectedJourneyId])
 
   if (!state) return null
@@ -54,12 +55,7 @@ export default function AvailabilityPage() {
   const fromStation = stations.find((s) => s.id === fromId)
   const toStation = stations.find((s) => s.id === toId)
 
-  const distanceKm =
-    fromStation && toStation
-      ? parseFloat(toStation.distance_from_origin_km) -
-        parseFloat(fromStation.distance_from_origin_km)
-      : 0
-  const baseFare = distanceKm * 2.5
+  const distanceKm = fromStation && toStation ? distanceBetween(fromStation, toStation) : 0
 
   const journeysWithSchedule = journeys.map((j) => ({
     ...j,
@@ -287,7 +283,7 @@ export default function AvailabilityPage() {
             <div className="space-y-3">
               {coachTypes.map((ct, i) => {
                 const avail = availability[i] ?? { availableSeats: 0, loading: true }
-                const farePerSeat = baseFare * ct.fareMultiplier
+                const farePerSeat = calcFareWithMultiplier(distanceKm, ct.fareMultiplier)
                 const totalFare = farePerSeat * passengers
                 const isUnreserved = avail.availableSeats === Infinity
                 const hasEnough = isUnreserved || avail.availableSeats >= passengers

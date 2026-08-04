@@ -21,8 +21,8 @@ export default function SchedulesTab() {
   const [form, setForm] = useState<Form>(empty)
 
   useEffect(() => {
-    load()
-    loadRoutes()
+    void load()
+    void loadRoutes()
   }, [load, loadRoutes])
 
   const routeMap = Object.fromEntries(routes.map((r) => [r.id, r]))

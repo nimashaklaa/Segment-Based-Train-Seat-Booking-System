@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle, ChevronRight, Printer } from 'lucide-react'
 import type { BookingSuccessLocationState as LocationState } from '../types'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
+import { distanceBetween } from '../utils/fare'
 
 export default function BookingSuccessPage() {
   const location = useLocation()
@@ -97,10 +98,7 @@ export default function BookingSuccessPage() {
                 </div>
                 {fromStation && toStation && (
                   <p className="text-xs text-gray-400">
-                    {Math.abs(
-                      parseFloat(toStation.distance_from_origin_km) -
-                        parseFloat(fromStation.distance_from_origin_km),
-                    )}{' '}
+                    {Math.abs(distanceBetween(fromStation, toStation))}{' '}
                     km
                   </p>
                 )}
