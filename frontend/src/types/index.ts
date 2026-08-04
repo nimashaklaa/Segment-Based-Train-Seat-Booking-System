@@ -111,6 +111,18 @@ export interface SeatSelectionLocationState {
   passengers: number
 }
 
+export interface Waitlist {
+  id: string
+  journey_id: string
+  seat_id: string
+  board_station_id: string
+  alight_station_id: string
+  passenger_name: string
+  passenger_email: string
+  status: string
+  created_at: string
+}
+
 export interface BookingSuccessLocationState {
   booking: Booking
   fromStation?: Station

@@ -123,7 +123,7 @@ func main() {
 	r.Get("/seats/available", h.GetAvailableSeats)
 	r.Post("/bookings", h.CreateBooking(mail))
 	r.Get("/bookings/{id}", h.GetBooking)
-	r.Delete("/bookings/{id}", h.CancelBooking)
+	r.Delete("/bookings/{id}", h.CancelBooking(mail))
 	r.Post("/waitlist", h.CreateWaitlistEntry)
 	r.Get("/admin/occupancy", h.GetOccupancy)
 	r.Get("/admin/revenue", h.GetRevenue)

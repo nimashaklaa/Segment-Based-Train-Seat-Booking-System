@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -80,9 +81,70 @@ func (s *Service) GetBooking(ctx context.Context, id, email string) (db.GetBooki
 	return s.verifyOwner(ctx, id, email)
 }
 
-func (s *Service) CancelBooking(ctx context.Context, id, email string) (db.CancelBookingRow, error) {
+func (s *Service) CancelBooking(ctx context.Context, m *mailer.Mailer, id, email string) (db.CancelBookingRow, error) {
 	if _, err := s.verifyOwner(ctx, id, email); err != nil {
 		return db.CancelBookingRow{}, err
 	}
-	return s.queries.CancelBooking(ctx, id)
+	cancelled, err := s.queries.CancelBooking(ctx, id)
+	if err != nil {
+		return db.CancelBookingRow{}, err
+	}
+	go s.notifyNextWaitlistEntry(context.Background(), m, cancelled)
+	return cancelled, nil
+}
+
+// notifyNextWaitlistEntry finds the earliest PENDING waitlist entry whose requested
+// segment overlaps the freed booking segment, marks it NOTIFIED, and emails the passenger.
+func (s *Service) notifyNextWaitlistEntry(ctx context.Context, m *mailer.Mailer, b db.CancelBookingRow) {
+	const q = `
+		SELECT id, passenger_name, passenger_email, board_station_id, alight_station_id
+		FROM waitlist
+		WHERE journey_id     = $1
+		  AND seat_id        = $2
+		  AND status         = 'PENDING'
+		  AND board_sequence  < $3
+		  AND alight_sequence > $4
+		ORDER BY created_at
+		LIMIT 1
+	`
+	var entryID, name, email, boardID, alightID string
+	err := s.rawDB.QueryRowContext(ctx, q,
+		b.JourneyID, b.SeatID, b.AlightSequence, b.BoardSequence,
+	).Scan(&entryID, &name, &email, &boardID, &alightID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return // no one waiting
+	}
+	if err != nil {
+		log.Printf("waitlist notify: query failed: %v", err)
+		return
+	}
+
+	// Mark NOTIFIED before sending to prevent double-notification.
+	if _, err := s.queries.UpdateWaitlistStatus(ctx, db.UpdateWaitlistStatusParams{
+		ID: entryID, Status: "NOTIFIED",
+	}); err != nil {
+		log.Printf("waitlist notify: failed to mark entry %s as NOTIFIED: %v", entryID, err)
+		return
+	}
+
+	boardStation, err := s.queries.GetStation(ctx, boardID)
+	if err != nil {
+		log.Printf("waitlist notify: get board station %s: %v", boardID, err)
+		return
+	}
+	alightStation, err := s.queries.GetStation(ctx, alightID)
+	if err != nil {
+		log.Printf("waitlist notify: get alight station %s: %v", alightID, err)
+		return
+	}
+
+	if err := m.SendWaitlistNotification(ctx, mailer.WaitlistNotificationData{
+		PassengerName:  name,
+		PassengerEmail: email,
+		BoardStation:   boardStation.Name,
+		AlightStation:  alightStation.Name,
+		JourneyID:      b.JourneyID,
+	}); err != nil {
+		log.Printf("waitlist notify: failed to email %s for entry %s: %v", email, entryID, err)
+	}
 }

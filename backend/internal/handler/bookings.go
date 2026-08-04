@@ -83,17 +83,19 @@ func (h *Handler) GetBooking(w http.ResponseWriter, r *http.Request) {
 }
 
 // DELETE /bookings/{id}?email=
-func (h *Handler) CancelBooking(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	email := strings.TrimSpace(r.URL.Query().Get("email"))
-	if email == "" {
-		writeError(w, http.StatusBadRequest, "email query parameter is required")
-		return
+func (h *Handler) CancelBooking(m *mailer.Mailer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		email := strings.TrimSpace(r.URL.Query().Get("email"))
+		if email == "" {
+			writeError(w, http.StatusBadRequest, "email query parameter is required")
+			return
+		}
+		booking, err := h.svc.CancelBooking(r.Context(), m, id, email)
+		if err != nil {
+			mapServiceError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, bookingResp(booking.ID, booking.JourneyID, booking.SeatID, booking.BoardStationID, booking.AlightStationID, booking.PassengerName, booking.PassengerEmail, booking.Fare, booking.Status, booking.CreatedAt))
 	}
-	booking, err := h.svc.CancelBooking(r.Context(), id, email)
-	if err != nil {
-		mapServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, bookingResp(booking.ID, booking.JourneyID, booking.SeatID, booking.BoardStationID, booking.AlightStationID, booking.PassengerName, booking.PassengerEmail, booking.Fare, booking.Status, booking.CreatedAt))
 }

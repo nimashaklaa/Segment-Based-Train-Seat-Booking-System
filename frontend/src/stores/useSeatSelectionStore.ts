@@ -11,6 +11,12 @@ interface SeatSelectionStore {
   loading: boolean
   error: string
   load: (journeyId: string, fromId: string, toId: string, coachTypeId: string) => Promise<void>
+  refreshAvailable: (
+    journeyId: string,
+    fromId: string,
+    toId: string,
+    coachTypeId: string,
+  ) => Promise<void>
   reset: () => void
 }
 
@@ -30,14 +36,22 @@ export const useSeatSelectionStore = create<SeatSelectionStore>((set) => ({
         seatService.listCoachesByType(coachTypeId),
         stationService.list(),
       ])
-      const allSeats = (
-        await Promise.all(coaches.map((c) => seatService.listByCoach(c.id)))
-      ).flat()
+      const allSeats = (await Promise.all(coaches.map((c) => seatService.listByCoach(c.id)))).flat()
       set({ availableSeats: avail, coaches, stations, allSeats })
     } catch (err: unknown) {
       set({ error: err instanceof Error ? err.message : 'Failed to load seats' })
     } finally {
       set({ loading: false })
+    }
+  },
+
+  // Lightweight refresh — only re-fetches available seat IDs, used for polling.
+  refreshAvailable: async (journeyId, fromId, toId, coachTypeId) => {
+    try {
+      const avail = await seatService.listAvailable(journeyId, fromId, toId, coachTypeId)
+      set({ availableSeats: avail })
+    } catch {
+      // Silent — don't surface errors on background polling
     }
   },
 

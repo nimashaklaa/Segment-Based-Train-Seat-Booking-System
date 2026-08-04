@@ -58,6 +58,34 @@ Thank you for travelling with us!
 	return smtp.SendMail(addr, nil, sanitize(m.from), []string{sanitize(data.PassengerEmail)}, []byte(msg))
 }
 
+type WaitlistNotificationData struct {
+	PassengerName  string
+	PassengerEmail string
+	BoardStation   string
+	AlightStation  string
+	JourneyID      string
+}
+
+func (m *Mailer) SendWaitlistNotification(ctx context.Context, data WaitlistNotificationData) error {
+	subject := "Seat Available — Your Waitlisted Journey"
+	body := fmt.Sprintf(`Hello %s,
+
+Good news! A seat has become available for your waitlisted journey segment:
+
+  From  : %s
+  To    : %s
+
+Please visit the booking site as soon as possible to secure your seat.
+Availability is not guaranteed — seats are first-come, first-served once notified.
+
+Thank you for your patience!
+`, data.PassengerName, data.BoardStation, data.AlightStation)
+
+	msg := buildMessage(sanitize(m.from), sanitize(data.PassengerEmail), sanitize(subject), body)
+	addr := m.host + ":" + m.port
+	return smtp.SendMail(addr, nil, sanitize(m.from), []string{sanitize(data.PassengerEmail)}, []byte(msg))
+}
+
 func buildMessage(from, to, subject, body string) string {
 	var sb strings.Builder
 	sb.WriteString("From: " + from + "\r\n")

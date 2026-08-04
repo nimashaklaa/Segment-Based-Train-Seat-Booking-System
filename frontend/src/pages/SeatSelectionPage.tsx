@@ -3,27 +3,34 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useSeatSelectionStore } from '../stores/useSeatSelectionStore'
 import { seatService } from '../services/seatService'
-import type { Seat, Booking, SeatSelectionLocationState as LocationState } from '../types'
+import { HttpError } from '../services/http'
 import { fmtDepartureTime } from '../utils/time'
 import { distanceBetween, calcBaseFare } from '../utils/fare'
+import type { Seat, Booking, SeatSelectionLocationState as LocationState } from '../types'
 import RouteTimeline from '../components/seat-selection/RouteTimeline'
 import SeatMap from '../components/seat-selection/SeatMap'
 import BookingPanel from '../components/seat-selection/BookingPanel'
+
+const POLL_INTERVAL_MS = 5000
 
 export default function SeatSelectionPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState | null
 
-  const { availableSeats, allSeats, coaches, stations, loading, error, load, reset } =
+  const { availableSeats, allSeats, coaches, stations, loading, error, load, refreshAvailable, reset } =
     useSeatSelectionStore()
 
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([])
   const [passengerName, setPassengerName] = useState('')
   const [passengerEmail, setPassengerEmail] = useState('')
   const [bookingError, setBookingError] = useState('')
+  const [isConflict, setIsConflict] = useState(false)
   const [booking, setBooking] = useState(false)
+  const [waitlistJoining, setWaitlistJoining] = useState(false)
+  const [waitlistJoined, setWaitlistJoined] = useState(false)
 
+  // Initial load
   useEffect(() => {
     if (!state) {
       navigate('/')
@@ -34,8 +41,25 @@ export default function SeatSelectionPage() {
     return () => reset()
   }, [])
 
+  // Poll for seat availability every 5 s
+  useEffect(() => {
+    if (!state) return
+    const { journeyId, fromId, toId, coachTypeId } = state
+    const id = setInterval(() => {
+      void refreshAvailable(journeyId, fromId, toId, coachTypeId)
+    }, POLL_INTERVAL_MS)
+    return () => clearInterval(id)
+  }, [])
+
+  // When available seats change, drop any selected seats that are no longer free
+  useEffect(() => {
+    if (availableSeats.length === 0) return
+    const availableIds = new Set(availableSeats.map((s) => s.id))
+    setSelectedSeats((prev) => prev.filter((s) => availableIds.has(s.id)))
+  }, [availableSeats])
+
   if (!state) return null
-  const { journeyId, fromId, toId, departureTime, trainNumber, trainName, passengers } = state
+  const { journeyId, fromId, toId, departureTime, trainNumber, trainName, passengers, coachTypeId } = state
 
   const fromStation = stations.find((s) => s.id === fromId)
   const toStation = stations.find((s) => s.id === toId)
@@ -58,6 +82,10 @@ export default function SeatSelectionPage() {
       if (prev.length >= passengers) return prev
       return [...prev, seat]
     })
+    // Dismiss conflict state when user picks a new seat
+    setIsConflict(false)
+    setBookingError('')
+    setWaitlistJoined(false)
   }
 
   async function handleBook(e: React.SyntheticEvent) {
@@ -68,6 +96,8 @@ export default function SeatSelectionPage() {
       return
     }
     setBookingError('')
+    setIsConflict(false)
+    setWaitlistJoined(false)
     setBooking(true)
     try {
       const bookings = await Promise.all(
@@ -93,8 +123,43 @@ export default function SeatSelectionPage() {
         },
       })
     } catch (err: unknown) {
-      setBookingError(err instanceof Error ? err.message : 'Booking failed')
+      if (err instanceof HttpError && err.status === 409) {
+        setIsConflict(true)
+        setBookingError('That seat was just taken by another passenger.')
+        // Refresh seat map so stale selection is cleared automatically
+        void refreshAvailable(journeyId, fromId, toId, coachTypeId)
+      } else {
+        setBookingError(err instanceof Error ? err.message : 'Booking failed')
+      }
       setBooking(false)
+    }
+  }
+
+  async function handleJoinWaitlist() {
+    if (!passengerName.trim() || !passengerEmail.trim()) {
+      setBookingError('Please enter your name and email to join the waitlist.')
+      return
+    }
+    const seat = selectedSeats[0]
+    if (!seat) return
+    setWaitlistJoining(true)
+    try {
+      await seatService.joinWaitlist(
+        journeyId,
+        seat.id,
+        fromId,
+        toId,
+        passengerName.trim(),
+        passengerEmail.trim(),
+      )
+      setWaitlistJoined(true)
+      setIsConflict(false)
+      setBookingError('')
+      setSelectedSeats([])
+    } catch (err: unknown) {
+      setBookingError(err instanceof Error ? err.message : 'Failed to join waitlist.')
+    } finally {
+      setWaitlistJoining(false)
     }
   }
 
@@ -154,10 +219,14 @@ export default function SeatSelectionPage() {
             passengerName={passengerName}
             passengerEmail={passengerEmail}
             bookingError={bookingError}
+            isConflict={isConflict}
             booking={booking}
+            waitlistJoining={waitlistJoining}
+            waitlistJoined={waitlistJoined}
             onNameChange={setPassengerName}
             onEmailChange={setPassengerEmail}
             onSubmit={handleBook}
+            onJoinWaitlist={handleJoinWaitlist}
           />
         </div>
       </div>
