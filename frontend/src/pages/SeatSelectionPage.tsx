@@ -144,6 +144,7 @@ export default function SeatSelectionPage() {
               loading={loading}
               error={error}
               onToggleSeat={toggleSeat}
+              onReset={() => setSelectedSeats([])}
             />
           </div>
 
