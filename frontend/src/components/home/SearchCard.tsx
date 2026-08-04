@@ -5,6 +5,16 @@ import { request } from '../../services/http'
 import type { Station } from '../../types'
 import { ROUTE_ID } from '../../constants/route'
 
+function defaultDateStr() {
+  const now = new Date()
+  if (now.getHours() >= 20) {
+    const tomorrow = new Date(now)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return tomorrow.toISOString().slice(0, 10)
+  }
+  return now.toISOString().slice(0, 10)
+}
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -12,7 +22,7 @@ function todayStr() {
 export default function SearchCard() {
   const navigate = useNavigate()
   const [stations, setStations] = useState<Station[]>([])
-  const [date, setDate] = useState(todayStr())
+  const [date, setDate] = useState(defaultDateStr())
   const [fromId, setFromId] = useState('')
   const [toId, setToId] = useState('')
   const [passengers, setPassengers] = useState(1)

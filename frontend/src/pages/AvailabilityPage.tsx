@@ -117,6 +117,10 @@ export default function AvailabilityPage() {
           fromStation={fromStation}
           toStation={toStation}
           loading={loadingMeta}
+          date={date}
+          fromId={fromId}
+          toId={toId}
+          passengers={passengers}
           onSelect={setSelectedJourneyId}
         />
 

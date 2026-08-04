@@ -1,4 +1,5 @@
 import { Train, Loader2, CheckCircle2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { estimatedArrival, fmtDepartureTime } from '../../utils/time'
 import type { Station, TrainJourney, TrainSchedule } from '../../types'
 
@@ -10,6 +11,10 @@ interface TrainListProps {
   fromStation: Station | undefined
   toStation: Station | undefined
   loading: boolean
+  date: string
+  fromId: string
+  toId: string
+  passengers: number
   onSelect: (journeyId: string) => void
 }
 
@@ -19,8 +24,21 @@ export default function TrainList({
   fromStation,
   toStation,
   loading,
+  date,
+  fromId,
+  toId,
+  passengers,
   onSelect,
 }: TrainListProps) {
+  const navigate = useNavigate()
+
+  function tryTomorrow() {
+    const next = new Date(date)
+    next.setDate(next.getDate() + 1)
+    const tomorrow = next.toISOString().slice(0, 10)
+    navigate('/availability', { state: { fromId, toId, passengers, date: tomorrow } })
+    window.location.reload()
+  }
   return (
     <div className="mb-8">
       <div className="flex items-baseline justify-between mb-3">
@@ -41,9 +59,18 @@ export default function TrainList({
             <p className="text-sm text-gray-400">Loading trains…</p>
           </div>
         ) : journeys.length === 0 ? (
-          <div className="bg-white p-12 flex flex-col items-center gap-3">
+          <div className="bg-white p-12 flex flex-col items-center gap-3 text-center">
             <Train size={32} className="text-gray-200" />
-            <p className="text-sm text-gray-500">No trains scheduled on this date.</p>
+            <p className="text-sm font-medium text-gray-600">No trains found for {date}</p>
+            <p className="text-xs text-gray-400">
+              All trains may have already departed for today.
+            </p>
+            <button
+              onClick={tryTomorrow}
+              className="mt-1 px-4 py-2 text-xs font-semibold bg-blue-700 text-white rounded hover:bg-blue-800 transition-colors"
+            >
+              Try tomorrow →
+            </button>
           </div>
         ) : (
           <table className="w-full text-sm border-collapse">
