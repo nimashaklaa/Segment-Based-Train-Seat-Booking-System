@@ -30,17 +30,19 @@ docker compose up --build
 ```
 
 That's it. Docker Compose will:
-1. Start PostgreSQL
-2. Run database migrations
-3. Seed stations, coaches, and seats
-4. Start the NestJS backend
-5. Start the React frontend
+1. Start PostgreSQL and wait until it is healthy
+2. Run all 11 database migrations automatically
+3. Seed stations, coach types, coaches, seats, and a sample schedule
+4. Start the Go backend on port 3000
+5. Start the React frontend served via Nginx on port 5173
 
 | Service | URL |
 |---|---|
 | Frontend | http://localhost:5173 |
 | Backend API | http://localhost:3000 |
-| API Docs (Swagger) | http://localhost:3000/api |
+| MailHog (email preview) | http://localhost:8025 |
+
+> Booking confirmation emails and waitlist notifications are delivered to MailHog locally — no real SMTP credentials required.
 
 ---
 
@@ -48,14 +50,14 @@ That's it. Docker Compose will:
 
 ### 1. Segment Occupancy Model
 
-Every booking holds a **half-open integer interval** `[board_sequence, alight_sequence)` on a specific seat within a specific journey. Stations have a `sequence_order` (Colombo Fort = 0, Kandy = 5, Badulla = 15). Two bookings conflict if their intervals overlap:
+Every booking holds a **half-open integer interval** `[board_sequence, alight_sequence)` on a specific seat within a specific journey. Stations have a `sequence_order` (Colombo Fort = 1, …, Badulla = 16). Two bookings conflict if their intervals overlap:
 
 ```
 A conflicts with B if: A.board_sequence < B.alight_sequence
                    AND A.alight_sequence > B.board_sequence
 ```
 
-Half-open ranges make adjacent segments work correctly by design: `[0, 5)` and `[5, 15)` do not overlap — Passenger A disembarks at Kandy (5) exactly as Passenger B boards at Kandy (5). No special edge-case handling needed.
+Half-open ranges make adjacent segments work correctly by design: `[1, 7)` and `[7, 16)` do not overlap — Passenger A disembarks at Kandy (7) exactly as Passenger B boards. No special edge-case handling needed.
 
 ### 2. Concurrency — PostgreSQL EXCLUSION Constraint
 
@@ -71,7 +73,7 @@ CONSTRAINT no_overlapping_seat_bookings EXCLUDE USING gist (
 
 `station_range` is a generated stored column (`int4range(board_sequence, alight_sequence, '[)')`). The database computes and maintains it automatically.
 
-When two concurrent requests try to book overlapping segments on the same seat, the database serializes them atomically — one INSERT succeeds, the other receives a constraint violation. The application catches this and returns `409 Conflict`. No application-level locks, no retry loops, no race conditions.
+When two concurrent requests try to book overlapping segments on the same seat, the database serializes them atomically — one INSERT succeeds, the other receives a constraint violation (PostgreSQL error code `23505`). The application catches this and returns `409 Conflict`. No application-level locks, no retry loops, no race conditions.
 
 **Why not application-level locking?** It requires a lock table, careful transaction management, and still has failure modes under network partitions. The EXCLUSION constraint is simpler, faster, and guaranteed correct.
 
@@ -79,19 +81,22 @@ When two concurrent requests try to book overlapping segments on the same seat, 
 
 ### 3. Schedule vs Journey Separation
 
-`TRAIN_SCHEDULE` holds the recurring pattern (train number, departure time). `TRAIN_JOURNEY` is one specific date's run. A single schedule row generates a journey per operating day without data duplication, and the EXCLUSION constraint is correctly scoped per journey — the same physical seat can be booked independently across different dates.
+`TRAIN_SCHEDULE` holds the recurring pattern (train number, name, departure time). `TRAIN_JOURNEY` is one specific date's run. A single schedule row generates a journey per operating day without data duplication, and the EXCLUSION constraint is correctly scoped per journey — the same physical seat can be booked independently across different dates.
 
 ### 4. Fare Calculation
 
 ```
-fare = (distance_km[alight_station] - distance_km[board_station]) × rate_per_km
+fare = (distance_km[alight] − distance_km[board]) × rate_per_km × coach_type_multiplier
 ```
 
-`rate_per_km` is a configurable environment variable. The fare logic is isolated in a service layer so it can be extended to a fare matrix, class-based pricing, or time-of-day rates without touching booking logic.
+- `rate_per_km` is a configurable environment variable (default LKR 2.50)
+- `coach_type_multiplier` is stored per coach type (e.g. First Class = 1.8, Second Class = 1.2, Unreserved = 1.0)
+
+The fare logic is isolated in the service layer so it can be extended to a fare matrix or time-of-day rates without touching booking logic.
 
 ### 5. Configurability
 
-Stations, coaches, seats per coach, and fare rate are all seeded from configuration — no magic numbers in code. The department can extend the route, add coaches, or adjust fares via config changes without code changes.
+Stations, coaches, seats per coach, fare rate, and coach type multipliers are all seeded from configuration — no magic numbers in code. The department can extend the route, add coaches, or adjust fares via admin CRUD endpoints or config changes without code changes.
 
 ---
 
@@ -99,42 +104,20 @@ Stations, coaches, seats per coach, and fare rate are all seeded from configurat
 
 | Decision | Chosen | Alternatives considered |
 |---|---|---|
-| Backend | Go | NestJS, ASP.NET Core, Django, Spring Boot |
-| Router | Chi | Gin, Fiber, stdlib net/http |
+| Backend | Go + Chi | NestJS, ASP.NET Core, Django, Spring Boot |
 | Query layer | sqlc | GORM, sqlx, raw database/sql |
 | Migrations | golang-migrate | Atlas, manual SQL |
-| Database | PostgreSQL | MySQL (no EXCLUSION constraints), MongoDB (poor fit for relational data) |
+| Database | PostgreSQL | MySQL (no EXCLUSION constraints), MongoDB (poor fit) |
 | Concurrency | DB EXCLUSION constraint | App-level locking, serializable transactions |
-| Frontend | React + Vite | Next.js, Vue, Svelte |
+| Frontend | React + Vite + Zustand | Next.js, Vue, Svelte |
+| Email (local) | MailHog | Mailtrap, real SMTP |
 | Infra | Docker Compose | Kubernetes (overkill), bare metal (not reproducible) |
 
-**Go over NestJS:** Compiled binary, lower memory footprint, simpler deployment. The correctness advantage of NestJS's TypeScript (shared types with frontend) doesn't outweigh Go's runtime and toolchain benefits for a production-grade API.
-
-**Go over ASP.NET Core:** Both are compiled and fast. Go produces a smaller binary, has simpler deployment (single static binary), and a more ergonomic toolchain for a focused HTTP API.
+**Go over NestJS:** Compiled binary, lower memory footprint, simpler deployment. The correctness advantage of shared TypeScript types doesn't outweigh Go's runtime and toolchain benefits for a production-grade API.
 
 **sqlc over GORM:** The overlap query is the heart of the system — sqlc lets you write the exact SQL you intend and generates type-safe Go functions from it. GORM hides the SQL behind an abstraction that makes critical queries harder to audit.
 
 **PostgreSQL over MySQL:** The EXCLUSION constraint is the core correctness mechanism. MySQL doesn't support it.
-
----
-
-## Extra Credit Features
-
-### Seat Map Visualization
-A visual grid per coach showing seat availability in real time. Seats are color-coded (available / booked / selected) and update via polling so the map reflects concurrent bookings without a page refresh.
-
-### Waitlisting
-When a booking attempt hits a conflict (`409`), passengers can join a waitlist for that seat+segment. On cancellation, the oldest matching waitlist entry is promoted to `NOTIFIED` and given a time window to complete their booking.
-
-### Admin Dashboard (`/admin`)
-- Occupancy heatmap by segment — which legs are full vs empty
-- Revenue summary by segment and date
-- Bookings table with filters by status, date, and route
-
-### Booking Conflict UX
-- Loading state on the confirm button prevents double-submit
-- On `409 Conflict`: clear "Seat just taken" message + one-click waitlist join
-- Seat map re-fetches after a conflict so the user sees current availability immediately
 
 ---
 
@@ -144,23 +127,29 @@ When a booking attempt hits a conflict (`409`), passengers can join a waitlist f
 /
 ├── docker-compose.yml
 ├── .env.example
-├── backend/                  # NestJS API
-│   ├── src/
-│   │   ├── stations/
-│   │   ├── coaches/
-│   │   ├── seats/
-│   │   ├── bookings/
-│   │   ├── waitlist/
-│   │   └── admin/
-│   ├── prisma/
-│   │   ├── schema.prisma
-│   │   └── seed.ts
+├── backend/                        # Go API
+│   ├── cmd/
+│   │   ├── server/main.go          # HTTP server, router, middleware
+│   │   └── seed/main.go            # Standalone seed command
+│   ├── internal/
+│   │   ├── db/                     # sqlc-generated type-safe query functions
+│   │   ├── handler/                # HTTP handlers (thin — delegate to service)
+│   │   ├── mailer/                 # SMTP email (booking confirmation, waitlist)
+│   │   ├── seed/                   # Seed logic (stations, coaches, seats)
+│   │   └── service/                # Business logic (fare, concurrency, waitlist)
+│   ├── migrations/                 # 11 SQL migration files (golang-migrate)
+│   ├── queries/                    # Raw SQL queries (sqlc source)
 │   └── Dockerfile
-├── frontend/                 # React + Vite
+├── frontend/                       # React + Vite + Tailwind + Zustand
 │   ├── src/
 │   │   ├── components/
-│   │   ├── pages/
-│   │   └── api/
+│   │   │   ├── availability/       # Train list, class list, step indicator
+│   │   │   └── seat-selection/     # Seat map, booking panel, route timeline
+│   │   ├── pages/                  # Home, Availability, SeatSelection, Admin, …
+│   │   ├── services/               # API client (typed fetch wrappers)
+│   │   ├── stores/                 # Zustand stores
+│   │   ├── types/                  # Shared TypeScript interfaces
+│   │   └── utils/                  # Fare calculation, time estimation
 │   └── Dockerfile
 └── README.md
 ```
@@ -173,6 +162,16 @@ Copy `.env.example` to `.env` before running. Never commit `.env`.
 
 | Variable | Description | Default |
 |---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string | set in docker-compose |
-| `FARE_RATE_PER_KM` | Fare in LKR per km | `2.50` |
-| `PORT` | Backend port | `3000` |
+| `POSTGRES_USER` | PostgreSQL username | `postgres` |
+| `POSTGRES_PASSWORD` | PostgreSQL password | `password` |
+| `POSTGRES_DB` | Database name | `train_booking` |
+| `DATABASE_URL` | Full connection string (set by Compose) | derived |
+| `FARE_RATE_PER_KM` | Base fare in LKR per km | `2.50` |
+| `PORT` | Backend HTTP port | `3000` |
+| `SMTP_HOST` | SMTP host for emails | `mailhog` |
+| `SMTP_PORT` | SMTP port | `1025` |
+| `SMTP_FROM` | Sender address | `noreply@trainbooking.lk` |
+| `ADMIN_USERNAME` | Admin login username | `admin` |
+| `ADMIN_PASSWORD` | Admin login password | `changeme` |
+| `JWT_SECRET` | Secret key used to sign admin JWT tokens | *(must be set)* |
+| `SEED_ON_STARTUP` | Auto-seed on first run | `true` |

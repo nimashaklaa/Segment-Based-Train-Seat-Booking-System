@@ -79,10 +79,20 @@ func main() {
 		}
 	}
 
+	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+	if len(jwtSecret) == 0 {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+	adminUser := os.Getenv("ADMIN_USERNAME")
+	adminPass := os.Getenv("ADMIN_PASSWORD")
+	if adminUser == "" || adminPass == "" {
+		log.Fatal("ADMIN_USERNAME and ADMIN_PASSWORD environment variables are required")
+	}
+
 	queries := db.New(database)
 	mail := mailer.New(smtpHost, smtpPort, smtpFrom)
 	svc := service.New(queries, database, fareRatePerKm)
-	h := handler.New(svc)
+	h := handler.New(svc, jwtSecret, adminUser, adminPass)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -116,8 +126,6 @@ func main() {
 	r.Get("/schedules", h.ListSchedules)
 	r.Get("/journeys", h.ListJourneys)
 	r.Get("/stations", h.ListStations)
-	r.Post("/admin/stations", h.CreateStation)
-	r.Put("/admin/stations/{id}", h.UpdateStation)
 	r.Get("/coaches", h.ListCoaches)
 	r.Get("/seats", h.ListSeatsByCoach)
 	r.Get("/seats/available", h.GetAvailableSeats)
@@ -125,25 +133,31 @@ func main() {
 	r.Get("/bookings/{id}", h.GetBooking)
 	r.Delete("/bookings/{id}", h.CancelBooking(mail))
 	r.Post("/waitlist", h.CreateWaitlistEntry)
-	r.Get("/admin/occupancy", h.GetOccupancy)
-	r.Get("/admin/revenue", h.GetRevenue)
+	r.Post("/admin/login", h.AdminLogin)
 
-	// Admin CRUD
-	r.Get("/admin/routes", h.ListRoutes)
-	r.Post("/admin/routes", h.CreateRoute)
-	r.Put("/admin/routes/{id}", h.UpdateRoute)
-	r.Get("/admin/schedules", h.ListAllSchedules)
-	r.Post("/admin/schedules", h.CreateSchedule)
-	r.Put("/admin/schedules/{id}", h.UpdateSchedule)
-	r.Delete("/admin/schedules/{id}", h.DeleteSchedule)
-	r.Get("/admin/journeys", h.ListAllJourneys)
-	r.Post("/admin/journeys", h.CreateJourney)
-	r.Put("/admin/journeys/{id}/status", h.UpdateJourneyStatus)
-	r.Get("/admin/coaches", h.ListAllCoaches)
-	r.Get("/admin/coach-types", h.ListCoachTypes)
-	r.Put("/admin/coach-types/{id}", h.UpdateCoachType)
-	r.Post("/admin/coaches", h.CreateCoach)
-	r.Delete("/admin/coaches/{id}", h.DeleteCoach)
+	// Admin routes — protected by JWT (issued by /admin/login)
+	r.Group(func(r chi.Router) {
+		r.Use(h.AdminAuth)
+		r.Get("/admin/occupancy", h.GetOccupancy)
+		r.Get("/admin/revenue", h.GetRevenue)
+		r.Post("/admin/stations", h.CreateStation)
+		r.Put("/admin/stations/{id}", h.UpdateStation)
+		r.Get("/admin/routes", h.ListRoutes)
+		r.Post("/admin/routes", h.CreateRoute)
+		r.Put("/admin/routes/{id}", h.UpdateRoute)
+		r.Get("/admin/schedules", h.ListAllSchedules)
+		r.Post("/admin/schedules", h.CreateSchedule)
+		r.Put("/admin/schedules/{id}", h.UpdateSchedule)
+		r.Delete("/admin/schedules/{id}", h.DeleteSchedule)
+		r.Get("/admin/journeys", h.ListAllJourneys)
+		r.Post("/admin/journeys", h.CreateJourney)
+		r.Put("/admin/journeys/{id}/status", h.UpdateJourneyStatus)
+		r.Get("/admin/coaches", h.ListAllCoaches)
+		r.Get("/admin/coach-types", h.ListCoachTypes)
+		r.Put("/admin/coach-types/{id}", h.UpdateCoachType)
+		r.Post("/admin/coaches", h.CreateCoach)
+		r.Delete("/admin/coaches/{id}", h.DeleteCoach)
+	})
 
 	log.Println("Server running on :3000")
 	log.Fatal(http.ListenAndServe(":3000", r))

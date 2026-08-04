@@ -21,11 +21,14 @@ type passengerJourneyRequest struct {
 
 // Handler holds the service layer and delegates all business logic to it.
 type Handler struct {
-	svc *service.Service
+	svc       *service.Service
+	jwtSecret []byte
+	adminUser string
+	adminPass string
 }
 
-func New(svc *service.Service) *Handler {
-	return &Handler{svc: svc}
+func New(svc *service.Service, jwtSecret []byte, adminUser, adminPass string) *Handler {
+	return &Handler{svc: svc, jwtSecret: jwtSecret, adminUser: adminUser, adminPass: adminPass}
 }
 
 // decodePassengerJourneyRequest parses and validates the shared request body.
