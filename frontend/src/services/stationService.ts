@@ -1,7 +1,6 @@
 import { request } from './http'
 import type { Station } from '../types'
-
-const ROUTE_ID = 'aaaaaaaa-0000-0000-0000-000000000001'
+import { ROUTE_ID } from '../constants/route'
 
 export const stationService = {
   list: () => request<Station[]>(`/stations?route_id=${ROUTE_ID}`),

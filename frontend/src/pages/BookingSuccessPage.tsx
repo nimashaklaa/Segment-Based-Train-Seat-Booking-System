@@ -1,21 +1,8 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle, ChevronRight, Printer } from 'lucide-react'
-import type { Booking, Station } from '../types'
+import type { BookingSuccessLocationState as LocationState } from '../types'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
-
-const TRAIN_NAMES: Record<string, string> = {
-  '1005': 'Udarata Menike',
-  '1015': 'Podi Menike',
-  '1007': 'Night Mail',
-}
-
-interface LocationState {
-  booking: Booking
-  fromStation?: Station
-  toStation?: Station
-  departureTime?: string
-  trainNumber?: string
-}
+import { TRAIN_NAMES } from '../constants/train'
 
 export default function BookingSuccessPage() {
   const location = useLocation()

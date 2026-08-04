@@ -10,52 +10,22 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react'
-import { request } from '../services/http'
-import type { Booking } from '../types'
+import { useMyBookingStore } from '../stores/useMyBookingStore'
 
 export default function MyBookingPage() {
   const [bookingId, setBookingId] = useState('')
   const [email, setEmail] = useState('')
-  const [booking, setBooking] = useState<Booking | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
-  const [error, setError] = useState('')
-  const [cancelled, setCancelled] = useState(false)
 
-  async function handleLookup(e: React.FormEvent) {
+  const { booking, loading, cancelling, error, cancelled, lookup, cancel } = useMyBookingStore()
+
+  async function handleLookup(e: React.SyntheticEvent) {
     e.preventDefault()
-    setError('')
-    setBooking(null)
-    setCancelled(false)
-    setLoading(true)
-    try {
-      setBooking(
-        await request<Booking>(
-          `/bookings/${bookingId.trim()}?email=${encodeURIComponent(email.trim())}`,
-        ),
-      )
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Booking not found')
-    } finally {
-      setLoading(false)
-    }
+    await lookup(bookingId.trim(), email.trim())
   }
 
   async function handleCancel() {
     if (!booking) return
-    setCancelling(true)
-    setError('')
-    try {
-      await request<Booking>(`/bookings/${booking.id}?email=${encodeURIComponent(email.trim())}`, {
-        method: 'DELETE',
-      })
-      setCancelled(true)
-      setBooking((b) => (b ? { ...b, status: 'cancelled' } : b))
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Cancellation failed')
-    } finally {
-      setCancelling(false)
-    }
+    await cancel(booking.id, email.trim())
   }
 
   return (

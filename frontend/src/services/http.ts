@@ -16,5 +16,5 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await res.text()
     throw new Error(text || `HTTP ${res.status}`)
   }
-  return res.json() as Promise<T>
+  return (await res.json()) as Promise<T>
 }

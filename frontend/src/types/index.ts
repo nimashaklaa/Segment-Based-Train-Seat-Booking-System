@@ -79,3 +79,29 @@ export interface RevenueResult {
   journey_id: string
   revenue: number
 }
+
+// Router location state shapes
+export interface AvailabilityLocationState {
+  fromId: string
+  toId: string
+  passengers: number
+  date: string
+}
+
+export interface SeatSelectionLocationState {
+  journeyId: string
+  fromId: string
+  toId: string
+  coachTypeId: string
+  departureTime: string
+  trainNumber: string
+  passengers: number
+}
+
+export interface BookingSuccessLocationState {
+  booking: Booking
+  fromStation?: Station
+  toStation?: Station
+  departureTime?: string
+  trainNumber?: string
+}

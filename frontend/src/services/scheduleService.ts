@@ -4,6 +4,8 @@ import type { TrainSchedule } from '../types'
 export const scheduleService = {
   list: () => request<TrainSchedule[]>('/admin/schedules'),
 
+  listByRoute: (routeId: string) => request<TrainSchedule[]>(`/schedules?route_id=${routeId}`),
+
   create: (trainNumber: string, routeId: string, departureTime: string) =>
     request<TrainSchedule>('/admin/schedules', {
       method: 'POST',

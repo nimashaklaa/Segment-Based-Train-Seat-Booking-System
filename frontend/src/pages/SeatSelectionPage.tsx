@@ -10,41 +10,25 @@ import {
   Clock,
   MapPin,
 } from 'lucide-react'
-import { request } from '../services/http'
-import type { Seat, Coach, Station, Booking } from '../types'
+import { useSeatSelectionStore } from '../stores/useSeatSelectionStore'
+import { seatService } from '../services/seatService'
+import type { Seat, Booking, SeatSelectionLocationState as LocationState } from '../types'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
-
-const TRAIN_NAMES: Record<string, string> = {
-  '1005': 'Udarata Menike',
-  '1015': 'Podi Menike',
-  '1007': 'Night Mail',
-}
-
-interface LocationState {
-  journeyId: string
-  fromId: string
-  toId: string
-  coachTypeId: string
-  departureTime: string
-  trainNumber: string
-  passengers: number
-}
+import { TRAIN_NAMES } from '../constants/train'
 
 export default function SeatSelectionPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState | null
 
-  const [availableSeats, setAvailableSeats] = useState<Seat[]>([])
-  const [allSeats, setAllSeats] = useState<Seat[]>([])
-  const [coaches, setCoaches] = useState<Coach[]>([])
-  const [stations, setStations] = useState<Station[]>([])
+  const { availableSeats, allSeats, coaches, stations, loading, error, load, reset } =
+    useSeatSelectionStore()
+
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([])
   const [passengerName, setPassengerName] = useState('')
   const [passengerEmail, setPassengerEmail] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [bookingError, setBookingError] = useState('')
   const [booking, setBooking] = useState(false)
-  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!state) {
@@ -52,24 +36,8 @@ export default function SeatSelectionPage() {
       return
     }
     const { journeyId, fromId, toId, coachTypeId } = state
-    Promise.all([
-      request<Seat[]>(
-        `/seats/available?journey_id=${journeyId}&from_id=${fromId}&to_id=${toId}&coach_type_id=${coachTypeId}`,
-      ),
-      request<Coach[]>(`/coaches?type_id=${coachTypeId}`),
-      request<Station[]>(`/stations?route_id=aaaaaaaa-0000-0000-0000-000000000001`),
-    ])
-      .then(async ([avail, c, st]) => {
-        setAvailableSeats(avail)
-        setCoaches(c)
-        setStations(st)
-        const allSeatsList = (
-          await Promise.all(c.map((coach) => request<Seat[]>(`/seats?coach_id=${coach.id}`)))
-        ).flat()
-        setAllSeats(allSeatsList)
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
+    load(journeyId, fromId, toId, coachTypeId)
+    return () => reset()
   }, [])
 
   if (!state) return null
@@ -78,7 +46,6 @@ export default function SeatSelectionPage() {
   const fromStation = stations.find((s) => s.id === fromId)
   const toStation = stations.find((s) => s.id === toId)
 
-  // Stations between from and to (inclusive), in order
   const routeSegment = stations.filter(
     (s) =>
       s.sequence_order >= (fromStation?.sequence_order ?? 0) &&
@@ -110,36 +77,33 @@ export default function SeatSelectionPage() {
     })
   }
 
-  async function handleBook(e: React.FormEvent) {
+  async function handleBook(e: React.SyntheticEvent) {
     e.preventDefault()
     if (selectedSeats.length === 0) return
     if (!passengerName.trim() || !passengerEmail.trim()) {
-      setError('Name and email are required.')
+      setBookingError('Name and email are required.')
       return
     }
-    setError('')
+    setBookingError('')
     setBooking(true)
     try {
       const bookings = await Promise.all(
         selectedSeats.map((seat) =>
-          request<Booking>('/bookings', {
-            method: 'POST',
-            body: JSON.stringify({
-              journey_id: journeyId,
-              seat_id: seat.id,
-              from_station_id: fromId,
-              to_station_id: toId,
-              passenger_name: passengerName.trim(),
-              passenger_email: passengerEmail.trim(),
-            }),
-          }),
+          seatService.createBooking(
+            journeyId,
+            seat.id,
+            fromId,
+            toId,
+            passengerName.trim(),
+            passengerEmail.trim(),
+          ),
         ),
       )
       navigate('/booking-success', {
-        state: { booking: bookings[0], fromStation, toStation, departureTime, trainNumber },
+        state: { booking: bookings[0] as Booking, fromStation, toStation, departureTime, trainNumber },
       })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Booking failed')
+      setBookingError(err instanceof Error ? err.message : 'Booking failed')
       setBooking(false)
     }
   }
@@ -182,9 +146,7 @@ export default function SeatSelectionPage() {
                 </div>
                 <div className="p-4">
                   <div className="relative">
-                    {/* Vertical line */}
                     <div className="absolute left-[5.5rem] top-3 bottom-3 w-px bg-gray-200" />
-
                     <div className="space-y-0">
                       {routeSegment.map((station) => {
                         const isFrom = station.id === fromId
@@ -194,10 +156,8 @@ export default function SeatSelectionPage() {
                           departureTime,
                           station.distance_from_origin_km,
                         )
-
                         return (
                           <div key={station.id} className="flex items-center gap-3 py-2">
-                            {/* Time */}
                             <div className="w-20 text-right shrink-0">
                               <span
                                 className={`text-xs font-mono font-semibold ${isEndpoint ? 'text-blue-700' : 'text-gray-400'}`}
@@ -205,8 +165,6 @@ export default function SeatSelectionPage() {
                                 {arrTime}
                               </span>
                             </div>
-
-                            {/* Dot */}
                             <div className="relative z-10 shrink-0">
                               {isEndpoint ? (
                                 <div className="w-3 h-3 rounded-full bg-blue-700 border-2 border-blue-200" />
@@ -214,8 +172,6 @@ export default function SeatSelectionPage() {
                                 <div className="w-2 h-2 rounded-full bg-gray-300" />
                               )}
                             </div>
-
-                            {/* Station name + distance */}
                             <div className="flex-1 flex items-center justify-between">
                               <div>
                                 <span
@@ -244,7 +200,6 @@ export default function SeatSelectionPage() {
                     </div>
                   </div>
 
-                  {/* Journey summary */}
                   {fromStation && toStation && (
                     <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-6 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
@@ -255,10 +210,8 @@ export default function SeatSelectionPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock size={11} className="text-blue-500" />
-                        {estimatedArrival(
-                          departureTime,
-                          fromStation.distance_from_origin_km,
-                        )} → {estimatedArrival(departureTime, toStation.distance_from_origin_km)}
+                        {estimatedArrival(departureTime, fromStation.distance_from_origin_km)} →{' '}
+                        {estimatedArrival(departureTime, toStation.distance_from_origin_km)}
                       </span>
                       <span className="ml-auto font-semibold text-gray-700">LKR {fare}</span>
                     </div>
@@ -287,17 +240,22 @@ export default function SeatSelectionPage() {
                 </div>
               </div>
 
-              {loading ? (
+              {error && (
+                <div className="p-8 text-center">
+                  <AlertTriangle size={28} className="mx-auto text-red-400 mb-2" />
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+
+              {!error && loading ? (
                 <div className="p-16 flex justify-center">
                   <Loader2 size={28} className="animate-spin text-blue-600" />
                 </div>
-              ) : availableSeats.length === 0 && allSeats.length === 0 ? (
+              ) : !error && availableSeats.length === 0 && allSeats.length === 0 ? (
                 <div className="p-12 text-center">
                   <AlertTriangle size={32} className="mx-auto text-amber-400 mb-3" />
                   <p className="font-semibold text-gray-700">No seats available for this segment</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Try a different station pair or class.
-                  </p>
+                  <p className="text-sm text-gray-400 mt-1">Try a different station pair or class.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
@@ -319,9 +277,15 @@ export default function SeatSelectionPage() {
                             return (
                               <button
                                 key={seat.id}
-                                onClick={() => isAvailable && !maxReached ? toggleSeat(seat) : undefined}
+                                onClick={() =>
+                                  isAvailable && !maxReached ? toggleSeat(seat) : undefined
+                                }
                                 disabled={isOccupied || maxReached}
-                                title={isOccupied ? `Seat ${seat.seat_number} — Occupied` : `Seat ${seat.seat_number}`}
+                                title={
+                                  isOccupied
+                                    ? `Seat ${seat.seat_number} — Occupied`
+                                    : `Seat ${seat.seat_number}`
+                                }
                                 className={`aspect-square rounded text-xs font-semibold border transition-all ${
                                   isOccupied
                                     ? 'bg-red-50 text-red-300 border-red-200 cursor-not-allowed'
@@ -401,14 +365,12 @@ export default function SeatSelectionPage() {
                         className="w-full border border-gray-300 rounded pl-8 pr-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Needed to retrieve your ticket later
-                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Needed to retrieve your ticket later</p>
                   </div>
 
-                  {error && (
+                  {bookingError && (
                     <p className="text-red-600 text-xs bg-red-50 border border-red-200 rounded px-3 py-2">
-                      {error}
+                      {bookingError}
                     </p>
                   )}
 

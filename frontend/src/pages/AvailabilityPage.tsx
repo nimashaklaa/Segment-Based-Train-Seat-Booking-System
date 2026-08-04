@@ -11,128 +11,33 @@ import {
   XCircle,
   Loader2,
 } from 'lucide-react'
-import { request } from '../services/http'
-import type { Station, TrainSchedule, TrainJourney } from '../types'
+import { useAvailabilityStore } from '../stores/useAvailabilityStore'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
-
-const ROUTE_ID = 'aaaaaaaa-0000-0000-0000-000000000001'
-
-const COACH_TYPES = [
-  {
-    id: 'cccccccc-0000-0000-0000-000000000001',
-    label: 'First Class',
-    description: 'Reserved · Air-conditioned · Reclining seats',
-    fareMultiplier: 1.8,
-    badge: '1st',
-    color: 'amber',
-    unreserved: false,
-  },
-  {
-    id: 'cccccccc-0000-0000-0000-000000000002',
-    label: 'Second Class',
-    description: 'Reserved · Cushioned seats · Fan-cooled',
-    fareMultiplier: 1.2,
-    badge: '2nd',
-    color: 'blue',
-    unreserved: false,
-  },
-  {
-    id: 'cccccccc-0000-0000-0000-000000000003',
-    label: 'Third Class',
-    description: 'Unreserved · Standard seating',
-    fareMultiplier: 1.0,
-    badge: '3rd',
-    color: 'gray',
-    unreserved: true,
-  },
-]
-
-const TRAIN_NAMES: Record<string, string> = {
-  '1005': 'Udarata Menike',
-  '1015': 'Podi Menike',
-  '1007': 'Night Mail',
-}
-
-interface LocationState {
-  fromId: string
-  toId: string
-  passengers: number
-  date: string
-}
-
-interface ClassAvailability {
-  coachTypeId: string
-  availableSeats: number
-  loading: boolean
-}
+import { TRAIN_NAMES, COACH_TYPES } from '../constants/train'
+import type { AvailabilityLocationState as LocationState } from '../types'
 
 export default function AvailabilityPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState | null
 
-  const [stations, setStations] = useState<Station[]>([])
-  const [schedules, setSchedules] = useState<TrainSchedule[]>([])
-  const [journeys, setJourneys] = useState<TrainJourney[]>([])
+  const { stations, schedules, journeys, loadingMeta, availability, load, loadClassAvailability, reset } =
+    useAvailabilityStore()
+
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null)
-  const [loadingMeta, setLoadingMeta] = useState(true)
-  const [availability, setAvailability] = useState<ClassAvailability[]>([])
-  const [, setLoadingAvail] = useState(false)
 
   useEffect(() => {
     if (!state) {
       navigate('/')
       return
     }
-    Promise.all([
-      request<Station[]>(`/stations?route_id=${ROUTE_ID}`),
-      request<TrainSchedule[]>(`/schedules?route_id=${ROUTE_ID}`),
-      request<TrainJourney[]>(`/journeys?date=${state.date}`),
-    ])
-      .then(([st, sc, j]) => {
-        setStations(st)
-        setSchedules(sc)
-        setJourneys(j)
-      })
-      .catch(console.error)
-      .finally(() => setLoadingMeta(false))
+    load(state.date)
+    return () => reset()
   }, [])
 
-  // When a journey is selected, load availability for all classes
   useEffect(() => {
     if (!selectedJourneyId || !state) return
-    setLoadingAvail(true)
-    setAvailability(
-      COACH_TYPES.map((ct) => ({ coachTypeId: ct.id, availableSeats: 0, loading: true })),
-    )
-
-    COACH_TYPES.forEach((ct, i) => {
-      if (ct.unreserved) {
-        setAvailability((prev) =>
-          prev.map((a, idx) => (idx === i ? { ...a, availableSeats: Infinity, loading: false } : a)),
-        )
-        if (i === COACH_TYPES.length - 1) setLoadingAvail(false)
-        return
-      }
-      request<{ id: string }[]>(
-        `/seats/available?journey_id=${selectedJourneyId}&from_id=${state.fromId}&to_id=${state.toId}&coach_type_id=${ct.id}`,
-      )
-        .then((seats) => {
-          setAvailability((prev) =>
-            prev.map((a, idx) =>
-              idx === i ? { ...a, availableSeats: seats.length, loading: false } : a,
-            ),
-          )
-        })
-        .catch(() => {
-          setAvailability((prev) =>
-            prev.map((a, idx) => (idx === i ? { ...a, availableSeats: 0, loading: false } : a)),
-          )
-        })
-        .finally(() => {
-          if (i === COACH_TYPES.length - 1) setLoadingAvail(false)
-        })
-    })
+    loadClassAvailability(selectedJourneyId, state.fromId, state.toId, COACH_TYPES)
   }, [selectedJourneyId])
 
   if (!state) return null
@@ -148,7 +53,6 @@ export default function AvailabilityPage() {
       : 0
   const baseFare = distanceKm * 2.5
 
-  // Join journeys with their schedules
   const journeysWithSchedule = journeys.map((j) => ({
     ...j,
     schedule: schedules.find((s) => s.id === j.schedule_id),
@@ -169,15 +73,7 @@ export default function AvailabilityPage() {
 
   function handleSelect(coachTypeId: string) {
     navigate('/seats', {
-      state: {
-        journeyId: selectedJourneyId,
-        fromId,
-        toId,
-        coachTypeId,
-        departureTime,
-        trainNumber,
-        passengers,
-      },
+      state: { journeyId: selectedJourneyId, fromId, toId, coachTypeId, departureTime, trainNumber, passengers },
     })
   }
 
@@ -298,7 +194,6 @@ export default function AvailabilityPage() {
                         : 'border-gray-200 hover:border-blue-300'
                     }`}
                   >
-                    {/* Radio dot */}
                     <div
                       className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
                         selected ? 'border-blue-600' : 'border-gray-300'
@@ -307,7 +202,6 @@ export default function AvailabilityPage() {
                       {selected && <div className="w-2 h-2 rounded-full bg-blue-600" />}
                     </div>
 
-                    {/* Train icon + name */}
                     <div className="flex items-center gap-3 flex-1">
                       <div
                         className={`w-10 h-10 rounded flex items-center justify-center shrink-0 ${
@@ -326,7 +220,6 @@ export default function AvailabilityPage() {
                       </div>
                     </div>
 
-                    {/* Board → Alight times */}
                     <div className="hidden sm:flex items-center gap-3 text-sm">
                       <div className="text-center">
                         <p className="text-xs text-gray-400">Board</p>
@@ -341,7 +234,6 @@ export default function AvailabilityPage() {
                       </div>
                     </div>
 
-                    {/* Status */}
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
                         j.status === 'SCHEDULED'
@@ -399,14 +291,12 @@ export default function AvailabilityPage() {
                     }`}
                   >
                     <div className="flex items-center gap-4 px-5 py-4">
-                      {/* Badge */}
                       <div
                         className={`shrink-0 w-12 h-12 rounded border-2 flex items-center justify-center text-lg font-bold ${badgeColor}`}
                       >
                         {ct.badge}
                       </div>
 
-                      {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="font-semibold text-gray-900 text-sm">{ct.label}</p>
@@ -428,7 +318,6 @@ export default function AvailabilityPage() {
                         <p className="text-xs text-gray-500">{ct.description}</p>
                       </div>
 
-                      {/* Seats left */}
                       <div className="shrink-0 text-center px-4 border-l border-gray-100">
                         {avail.loading ? (
                           <Loader2 size={16} className="animate-spin text-gray-400 mx-auto" />
@@ -449,7 +338,6 @@ export default function AvailabilityPage() {
                         )}
                       </div>
 
-                      {/* Fare */}
                       <div className="shrink-0 text-right px-4 border-l border-gray-100">
                         <p className="text-lg font-bold text-gray-900">
                           LKR {farePerSeat.toFixed(0)}
@@ -462,7 +350,6 @@ export default function AvailabilityPage() {
                         )}
                       </div>
 
-                      {/* Action */}
                       <div className="shrink-0 pl-4 border-l border-gray-100">
                         <button
                           onClick={() => handleSelect(ct.id)}
@@ -474,7 +361,6 @@ export default function AvailabilityPage() {
                       </div>
                     </div>
 
-                    {/* Seat fill bar */}
                     {!avail.loading && avail.availableSeats > 0 && (
                       <div className="h-1 bg-gray-100">
                         <div
