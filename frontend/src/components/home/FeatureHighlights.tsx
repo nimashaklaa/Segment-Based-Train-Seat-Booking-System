@@ -1,32 +1,18 @@
-import { MapPin, Ticket, Armchair } from 'lucide-react'
-
-const features = [
-  {
-    icon: <MapPin size={22} className="text-blue-700" />,
-    title: 'Scenic Route',
-    desc: 'Travel through lush tea plantations, highland tunnels, and the iconic Nine Arch Bridge.',
-  },
-  {
-    icon: <Ticket size={22} className="text-blue-700" />,
-    title: 'Easy Booking',
-    desc: 'Search availability, pick your seat, and confirm your ticket in just a few clicks.',
-  },
-  {
-    icon: <Armchair size={22} className="text-blue-700" />,
-    title: 'Multiple Classes',
-    desc: 'Choose from 1st, 2nd, and 3rd class coaches — reserved or unreserved seating.',
-  },
+const stats = [
+  { value: '308 km',  label: 'Route length' },
+  { value: '16',      label: 'Stations' },
+  { value: '1,898 m', label: 'Highest point — Pattipola' },
+  { value: '~9h 30m', label: 'Colombo to Badulla' },
 ]
 
 export default function FeatureHighlights() {
   return (
-    <section className="max-w-5xl mx-auto px-4 mb-14">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {features.map((f) => (
-          <div key={f.title} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-            <div className="mb-3">{f.icon}</div>
-            <h3 className="font-semibold text-gray-800 mb-1">{f.title}</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
+    <section className="bg-blue-900 text-white">
+      <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-2 md:grid-cols-4 gap-6">
+        {stats.map((s) => (
+          <div key={s.label}>
+            <p className="text-3xl font-bold tracking-tight">{s.value}</p>
+            <p className="text-xs text-blue-300 mt-1">{s.label}</p>
           </div>
         ))}
       </div>

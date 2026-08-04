@@ -10,7 +10,7 @@ const items = [
 
 export default function GallerySection() {
   return (
-    <section id="gallery" className="max-w-5xl mx-auto px-4 mb-16">
+    <section id="gallery" className="max-w-5xl mx-auto px-4 pt-10 mb-16">
       <h2 className="text-xl font-bold text-gray-800 mb-4">Gallery</h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {items.map((item) => (

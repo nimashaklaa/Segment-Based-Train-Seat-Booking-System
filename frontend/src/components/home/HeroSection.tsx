@@ -5,8 +5,8 @@ import kandy from '../../assets/train.jpg'
 
 const slides = [
   { src: bridge, caption: 'Nine Arch Bridge, Demodara' },
-  { src: girl,   caption: 'The Hill Country Experience' },
-  { src: kandy,  caption: 'Kandy Railway Station' },
+  { src: girl, caption: 'The Hill Country Experience' },
+  { src: kandy, caption: 'Kandy Railway Station' },
 ]
 
 export default function HeroSection() {
@@ -18,7 +18,7 @@ export default function HeroSection() {
   }, [])
 
   return (
-    <section className="relative h-72 md:h-96 overflow-hidden">
+    <section className="relative h-72 md:h-120 overflow-hidden">
       {slides.map((slide, i) => (
         <img
           key={slide.src}
