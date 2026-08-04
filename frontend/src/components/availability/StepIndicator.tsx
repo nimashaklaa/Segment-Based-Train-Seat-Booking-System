@@ -5,28 +5,40 @@ interface StepIndicatorProps {
 
 export default function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
   return (
-    <div className="flex items-center mb-6">
+    <div className="flex items-center mb-8">
       {steps.map((step, i) => (
         <div key={step} className="flex items-center flex-1 last:flex-none">
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+          <div className="flex items-center gap-2.5">
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 transition-colors ${
                 i < currentStep
-                  ? 'bg-green-500 text-white'
+                  ? 'bg-blue-700 text-white'
                   : i === currentStep
-                    ? 'bg-blue-700 text-white'
-                    : 'bg-gray-200 text-gray-500'
+                    ? 'bg-blue-700 text-white ring-4 ring-blue-100'
+                    : 'bg-white border border-gray-300 text-gray-400'
               }`}
             >
-              {i < currentStep ? '✓' : i + 1}
-            </span>
+              {i < currentStep ? (
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" className="w-3 h-3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="2,6 5,9 10,3" />
+                </svg>
+              ) : (
+                i + 1
+              )}
+            </div>
             <span
-              className={`text-xs hidden sm:block ${i === currentStep ? 'font-semibold text-blue-700' : 'text-gray-400'}`}
+              className={`text-xs font-medium hidden sm:block ${
+                i === currentStep ? 'text-blue-700' : i < currentStep ? 'text-gray-500' : 'text-gray-400'
+              }`}
             >
               {step}
             </span>
           </div>
-          {i < steps.length - 1 && <div className="flex-1 border-t border-gray-200 mx-2" />}
+          {i < steps.length - 1 && (
+            <div className="flex-1 mx-3">
+              <div className={`h-px ${i < currentStep ? 'bg-blue-700' : 'bg-gray-200'}`} />
+            </div>
+          )}
         </div>
       ))}
     </div>
