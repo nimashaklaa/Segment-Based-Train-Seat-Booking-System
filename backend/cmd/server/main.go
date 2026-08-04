@@ -25,7 +25,7 @@ import (
 func main() {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://postgres:password@localhost:5432/train_booking?sslmode=disable"
+		log.Fatal("DATABASE_URL environment variable is required")
 	}
 
 	fareRatePerKm := 2.50

@@ -1,9 +1,19 @@
-import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Ticket } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Ticket } from 'lucide-react'
 import slrLogo from '../assets/Sri_Lanka_Railway_logo.png'
 
 export default function Header() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+
+  function scrollToSection(id: string) {
+    if (pathname === '/') {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+    } else {
+      navigate('/')
+      setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 100)
+    }
+  }
 
   const navLink = (to: string, label: string) => (
     <Link
@@ -29,19 +39,18 @@ export default function Header() {
         <nav className="hidden md:flex items-center gap-6 flex-1">
           {navLink('/', 'Home')}
           {navLink('/my-booking', 'My Booking')}
-          {navLink('/admin', 'Admin')}
-          <a
-            href="#gallery"
+          <button
+            onClick={() => scrollToSection('gallery')}
             className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
           >
             Gallery
-          </a>
-          <a
-            href="#about"
+          </button>
+          <button
+            onClick={() => scrollToSection('about')}
             className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
           >
             About
-          </a>
+          </button>
         </nav>
 
         {/* Actions */}
@@ -52,13 +61,6 @@ export default function Header() {
           >
             <Ticket size={14} />
             My Ticket
-          </Link>
-          <Link
-            to="/admin"
-            className="flex items-center gap-1.5 text-sm bg-blue-700 text-white rounded px-3 py-1.5 hover:bg-blue-800 transition-colors"
-          >
-            <LayoutDashboard size={14} />
-            Admin
           </Link>
         </div>
       </div>

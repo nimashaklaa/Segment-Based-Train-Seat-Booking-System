@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -33,7 +34,9 @@ func (h *Handler) AdminLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "admin access is not configured on this server")
 		return
 	}
-	if req.Username != h.adminUser || req.Password != h.adminPass {
+	userMatch := subtle.ConstantTimeCompare([]byte(req.Username), []byte(h.adminUser)) == 1
+	passMatch := subtle.ConstantTimeCompare([]byte(req.Password), []byte(h.adminPass)) == 1
+	if !userMatch || !passMatch {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
