@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/lib/pq"
 	"github.com/nimashaklaa/train-seat-booking/internal/db"
 )
 
@@ -61,18 +62,6 @@ func (s *Service) UpdateStation(ctx context.Context, id string, input StationInp
 }
 
 func isUniqueViolation(err error) bool {
-	return err != nil && (contains(err.Error(), "unique") || contains(err.Error(), "duplicate"))
-}
-
-func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(s) > 0 && containsStr(s, sub))
-}
-
-func containsStr(s, sub string) bool {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
+	var pgErr *pq.Error
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

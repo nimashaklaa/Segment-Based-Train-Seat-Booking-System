@@ -53,8 +53,10 @@ export const useCoachesStore = create<CoachesStore>((set, get) => ({
     try {
       await coachService.delete(id)
       await get().load()
-    } catch {
-      /* silent */
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err.message : 'Operation failed'
+      set({ error: e })
+      throw err
     }
   },
 }))

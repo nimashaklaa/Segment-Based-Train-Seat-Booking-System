@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"time"
 
+	"github.com/lib/pq"
 	"github.com/nimashaklaa/train-seat-booking/internal/db"
 	"github.com/nimashaklaa/train-seat-booking/internal/mailer"
 )
@@ -45,11 +48,18 @@ func (s *Service) CreateBooking(ctx context.Context, m *mailer.Mailer, input Boo
 		Fare:            fare,
 	})
 	if err != nil {
-		return db.CreateBookingRow{}, fmt.Errorf("seat is not available for this segment: %w", ErrConflict)
+		var pgErr *pq.Error
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return db.CreateBookingRow{}, ErrConflict
+		}
+		return db.CreateBookingRow{}, fmt.Errorf("create booking: %w", err)
 	}
 
+	bookingID := booking.ID
 	go func() {
-		if err := m.SendBookingConfirmation(mailer.BookingConfirmationData{
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := m.SendBookingConfirmation(ctx, mailer.BookingConfirmationData{
 			PassengerName:  booking.PassengerName,
 			PassengerEmail: booking.PassengerEmail,
 			BookingID:      booking.ID,
@@ -59,7 +69,7 @@ func (s *Service) CreateBooking(ctx context.Context, m *mailer.Mailer, input Boo
 			AlightStation:  toStation.Name,
 			Fare:           booking.Fare,
 		}); err != nil {
-			log.Printf("failed to send confirmation email for booking %s: %v", booking.ID, err)
+			log.Printf("failed to send confirmation email for booking %s: %v", bookingID, err)
 		}
 	}()
 

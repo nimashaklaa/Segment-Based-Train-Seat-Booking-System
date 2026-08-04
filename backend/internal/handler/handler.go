@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/nimashaklaa/train-seat-booking/internal/service"
 )
@@ -38,6 +39,11 @@ func decodePassengerJourneyRequest(w http.ResponseWriter, r *http.Request) (pass
 	if req.JourneyID == "" || req.SeatID == "" || req.FromStationID == "" ||
 		req.ToStationID == "" || req.PassengerName == "" || req.PassengerEmail == "" {
 		writeError(w, http.StatusBadRequest, "journey_id, seat_id, from_station_id, to_station_id, passenger_name and passenger_email are required")
+		return req, false
+	}
+	atIdx := strings.Index(req.PassengerEmail, "@")
+	if atIdx < 0 || !strings.Contains(req.PassengerEmail[atIdx:], ".") {
+		writeError(w, http.StatusUnprocessableEntity, "invalid email address")
 		return req, false
 	}
 	return req, true

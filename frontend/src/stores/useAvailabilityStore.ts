@@ -21,8 +21,10 @@ interface AvailabilityStore {
   coachTypes: EnrichedCoachType[]
   loadingMeta: boolean
   availability: ClassAvailability[]
+  error: string
+  selectedJourneyId: string
   load: (date: string) => Promise<void>
-  loadClassAvailability: (journeyId: string, fromId: string, toId: string) => void
+  loadClassAvailability: (journeyId: string, fromId: string, toId: string) => Promise<void>
   reset: () => void
 }
 
@@ -33,6 +35,8 @@ export const useAvailabilityStore = create<AvailabilityStore>((set, get) => ({
   coachTypes: [],
   loadingMeta: true,
   availability: [],
+  error: '',
+  selectedJourneyId: '',
 
   load: async (date) => {
     set({ loadingMeta: true })
@@ -61,46 +65,44 @@ export const useAvailabilityStore = create<AvailabilityStore>((set, get) => ({
 
       set({ stations, schedules, journeys, coachTypes })
     } catch (err) {
-      console.error(err)
+      set({ error: err instanceof Error ? err.message : 'Failed to load', loadingMeta: false })
     } finally {
       set({ loadingMeta: false })
     }
   },
 
-  loadClassAvailability: (journeyId, fromId, toId) => {
+  loadClassAvailability: async (journeyId, fromId, toId) => {
     const { coachTypes } = get()
     set({
+      selectedJourneyId: journeyId,
       availability: coachTypes.map((ct) => ({ coachTypeId: ct.id, availableSeats: 0, loading: true })),
     })
 
-    coachTypes.forEach((ct, i) => {
-      if (ct.unreserved) {
-        set((state) => ({
-          availability: state.availability.map((a, idx) =>
-            idx === i ? { ...a, availableSeats: Infinity, loading: false } : a,
-          ),
-        }))
-        return
-      }
-      seatService
-        .countAvailable(journeyId, fromId, toId, ct.id)
-        .then((count) => {
-          set((state) => ({
-            availability: state.availability.map((a, idx) =>
-              idx === i ? { ...a, availableSeats: count, loading: false } : a,
-            ),
-          }))
-        })
-        .catch(() => {
-          set((state) => ({
-            availability: state.availability.map((a, idx) =>
-              idx === i ? { ...a, availableSeats: 0, loading: false } : a,
-            ),
-          }))
-        })
-    })
+    try {
+      const counts = await Promise.all(
+        coachTypes.map((ct) =>
+          ct.unreserved
+            ? Promise.resolve(Infinity)
+            : seatService.countAvailable(journeyId, fromId, toId, ct.id),
+        ),
+      )
+      if (get().selectedJourneyId !== journeyId) return
+      set({
+        availability: counts.map((count, i) => ({
+          coachTypeId: coachTypes[i].id,
+          availableSeats: count,
+          loading: false,
+        })),
+      })
+    } catch (err) {
+      set({
+        availability: coachTypes.map((ct) => ({ coachTypeId: ct.id, availableSeats: 0, loading: false })),
+        error: err instanceof Error ? err.message : 'Failed to load availability',
+      })
+    }
+
   },
 
   reset: () =>
-    set({ stations: [], schedules: [], journeys: [], coachTypes: [], loadingMeta: true, availability: [] }),
+    set({ stations: [], schedules: [], journeys: [], coachTypes: [], loadingMeta: true, availability: [], error: '', selectedJourneyId: '' }),
 }))

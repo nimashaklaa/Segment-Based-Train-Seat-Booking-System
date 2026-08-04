@@ -50,8 +50,10 @@ export const useJourneysStore = create<JourneysStore>((set, get) => ({
     try {
       await journeyService.updateStatus(id, status)
       await get().load()
-    } catch {
-      /* silent */
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err.message : 'Operation failed'
+      set({ error: e })
+      throw err
     }
   },
 }))

@@ -1,6 +1,7 @@
 package mailer
 
 import (
+	"context"
 	"fmt"
 	"net/smtp"
 	"strings"
@@ -27,7 +28,13 @@ type BookingConfirmationData struct {
 	Fare           string
 }
 
-func (m *Mailer) SendBookingConfirmation(data BookingConfirmationData) error {
+func sanitize(s string) string {
+	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.ReplaceAll(s, "\n", " ")
+	return s
+}
+
+func (m *Mailer) SendBookingConfirmation(ctx context.Context, data BookingConfirmationData) error {
 	subject := "Your Train Booking Confirmation"
 	body := fmt.Sprintf(`Hello %s,
 
@@ -46,9 +53,9 @@ Thank you for travelling with us!
 `, data.PassengerName, data.BookingID, data.JourneyID, data.SeatID,
 		data.BoardStation, data.AlightStation, data.Fare)
 
-	msg := buildMessage(m.from, data.PassengerEmail, subject, body)
+	msg := buildMessage(sanitize(m.from), sanitize(data.PassengerEmail), sanitize(subject), body)
 	addr := m.host + ":" + m.port
-	return smtp.SendMail(addr, nil, m.from, []string{data.PassengerEmail}, []byte(msg))
+	return smtp.SendMail(addr, nil, sanitize(m.from), []string{sanitize(data.PassengerEmail)}, []byte(msg))
 }
 
 func buildMessage(from, to, subject, body string) string {

@@ -9,8 +9,8 @@ interface SchedulesStore {
   error: string
   setError: (e: string) => void
   load: () => Promise<void>
-  create: (trainNumber: string, routeId: string, departureTime: string) => Promise<void>
-  update: (id: string, trainNumber: string, departureTime: string) => Promise<void>
+  create: (trainNumber: string, trainName: string, routeId: string, departureTime: string) => Promise<void>
+  update: (id: string, trainNumber: string, trainName: string, departureTime: string) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -33,10 +33,10 @@ export const useSchedulesStore = create<SchedulesStore>((set, get) => ({
     }
   },
 
-  create: async (trainNumber, routeId, departureTime) => {
+  create: async (trainNumber, trainName, routeId, departureTime) => {
     set({ saving: true, error: '' })
     try {
-      await scheduleService.create(trainNumber, routeId, departureTime)
+      await scheduleService.create(trainNumber, trainName, routeId, departureTime)
       await get().load()
     } catch (err: unknown) {
       const e = err instanceof Error ? err.message : 'Save failed'
@@ -47,10 +47,10 @@ export const useSchedulesStore = create<SchedulesStore>((set, get) => ({
     }
   },
 
-  update: async (id, trainNumber, departureTime) => {
+  update: async (id, trainNumber, trainName, departureTime) => {
     set({ saving: true, error: '' })
     try {
-      await scheduleService.update(id, trainNumber, departureTime)
+      await scheduleService.update(id, trainNumber, trainName, departureTime)
       await get().load()
     } catch (err: unknown) {
       const e = err instanceof Error ? err.message : 'Save failed'
@@ -65,8 +65,10 @@ export const useSchedulesStore = create<SchedulesStore>((set, get) => ({
     try {
       await scheduleService.delete(id)
       await get().load()
-    } catch {
-      /* silent */
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err.message : 'Operation failed'
+      set({ error: e })
+      throw err
     }
   },
 }))

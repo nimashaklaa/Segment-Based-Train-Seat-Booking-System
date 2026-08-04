@@ -6,10 +6,11 @@ import { INPUT_CLS, LABEL_CLS, TableSkeleton, fmtHHMM } from './shared'
 
 interface Form {
   train_number: string
+  train_name: string
   route_id: string
   departure_time: string
 }
-const empty: Form = { train_number: '', route_id: '', departure_time: '' }
+const empty: Form = { train_number: '', train_name: '', route_id: '', departure_time: '' }
 
 export default function SchedulesTab() {
   const { schedules, loading, saving, error, setError, load, create, update, remove } =
@@ -36,6 +37,7 @@ export default function SchedulesTab() {
     setEditingId(s.id)
     setForm({
       train_number: s.train_number,
+      train_name: s.train_name,
       route_id: s.route_id,
       departure_time: fmtHHMM(s.departure_time),
     })
@@ -60,9 +62,9 @@ export default function SchedulesTab() {
     }
     try {
       if (editingId) {
-        await update(editingId, form.train_number.trim(), form.departure_time)
+        await update(editingId, form.train_number.trim(), form.train_name.trim(), form.departure_time)
       } else {
-        await create(form.train_number.trim(), form.route_id, form.departure_time)
+        await create(form.train_number.trim(), form.train_name.trim(), form.route_id, form.departure_time)
       }
       cancel()
     } catch {
@@ -112,6 +114,16 @@ export default function SchedulesTab() {
                   value={form.train_number}
                   onChange={(e) => setForm((f) => ({ ...f, train_number: e.target.value }))}
                   placeholder="e.g. 1005"
+                  className={INPUT_CLS}
+                />
+              </div>
+              <div>
+                <label className={LABEL_CLS}>Train Name</label>
+                <input
+                  type="text"
+                  value={form.train_name}
+                  onChange={(e) => setForm((f) => ({ ...f, train_name: e.target.value }))}
+                  placeholder="e.g. Udarata Menike"
                   className={INPUT_CLS}
                 />
               </div>
@@ -174,6 +186,7 @@ export default function SchedulesTab() {
               <thead>
                 <tr className="text-xs text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-200">
                   <th className="text-left px-5 py-3">Train Number</th>
+                  <th className="text-left px-5 py-3">Train Name</th>
                   <th className="text-left px-5 py-3">Route</th>
                   <th className="text-left px-5 py-3">Departure</th>
                   <th className="px-5 py-3 w-32"></th>
@@ -182,7 +195,7 @@ export default function SchedulesTab() {
               <tbody className="divide-y divide-gray-100">
                 {schedules.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center text-gray-400 py-12">
+                    <td colSpan={5} className="text-center text-gray-400 py-12">
                       No schedules found
                     </td>
                   </tr>
@@ -190,6 +203,7 @@ export default function SchedulesTab() {
                   schedules.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-5 py-3 font-medium text-gray-800">{s.train_number}</td>
+                      <td className="px-5 py-3 text-gray-600">{s.train_name || '—'}</td>
                       <td className="px-5 py-3 text-gray-600">
                         {routeMap[s.route_id]?.name ?? s.route_id.slice(0, 8) + '…'}
                       </td>
