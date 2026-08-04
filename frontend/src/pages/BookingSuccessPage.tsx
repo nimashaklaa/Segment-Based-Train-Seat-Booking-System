@@ -2,7 +2,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle, ChevronRight, Printer } from 'lucide-react'
 import type { BookingSuccessLocationState as LocationState } from '../types'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
-import { TRAIN_NAMES } from '../constants/train'
 
 export default function BookingSuccessPage() {
   const location = useLocation()
@@ -13,7 +12,7 @@ export default function BookingSuccessPage() {
     navigate('/')
     return null
   }
-  const { booking, fromStation, toStation, departureTime, trainNumber } = state
+  const { booking, fromStation, toStation, departureTime, trainNumber, trainName } = state
 
   const boardTime =
     departureTime && fromStation
@@ -64,7 +63,7 @@ export default function BookingSuccessPage() {
               <p className="font-bold text-sm">Sri Lanka Railways</p>
               <p className="text-blue-200 text-xs">
                 {trainNumber
-                  ? `Train #${trainNumber} · ${TRAIN_NAMES[trainNumber] ?? ''}`
+                  ? `Train #${trainNumber} · ${trainName ?? ''}`
                   : 'Train Ticket'}
                 {departureTime ? ` · Departs ${fmtDepartureTime(departureTime)}` : ''}
               </p>

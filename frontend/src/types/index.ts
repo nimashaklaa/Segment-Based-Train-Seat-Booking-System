@@ -34,6 +34,7 @@ export interface Booking {
 export interface TrainSchedule {
   id: string
   train_number: string
+  train_name: string
   route_id: string
   departure_time: string
 }
@@ -58,6 +59,7 @@ export interface CoachType {
   name: string
   is_reserved: boolean
   seat_capacity: number
+  fare_multiplier: string
 }
 
 export interface CoachWithType {
@@ -80,6 +82,16 @@ export interface RevenueResult {
   revenue: number
 }
 
+export interface EnrichedCoachType {
+  id: string
+  name: string
+  unreserved: boolean
+  fareMultiplier: number  // from DB fare_multiplier
+  description: string
+  badge: string
+  color: string
+}
+
 // Router location state shapes
 export interface AvailabilityLocationState {
   fromId: string
@@ -95,6 +107,7 @@ export interface SeatSelectionLocationState {
   coachTypeId: string
   departureTime: string
   trainNumber: string
+  trainName: string
   passengers: number
 }
 
@@ -104,4 +117,5 @@ export interface BookingSuccessLocationState {
   toStation?: Station
   departureTime?: string
   trainNumber?: string
+  trainName?: string
 }

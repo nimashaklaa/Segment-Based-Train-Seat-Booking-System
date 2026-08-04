@@ -3,8 +3,10 @@ import { stationService } from '../services/stationService'
 import { scheduleService } from '../services/scheduleService'
 import { journeyService } from '../services/journeyService'
 import { seatService } from '../services/seatService'
-import type { Station, TrainSchedule, TrainJourney } from '../types'
+import { coachService } from '../services/coachService'
+import type { Station, TrainSchedule, TrainJourney, EnrichedCoachType } from '../types'
 import { ROUTE_ID } from '../constants/route'
+import { COACH_TYPE_UI } from '../constants/train'
 
 export interface ClassAvailability {
   coachTypeId: string
@@ -16,34 +18,48 @@ interface AvailabilityStore {
   stations: Station[]
   schedules: TrainSchedule[]
   journeys: TrainJourney[]
+  coachTypes: EnrichedCoachType[]
   loadingMeta: boolean
   availability: ClassAvailability[]
   load: (date: string) => Promise<void>
-  loadClassAvailability: (
-    journeyId: string,
-    fromId: string,
-    toId: string,
-    coachTypes: { id: string; unreserved: boolean }[],
-  ) => void
+  loadClassAvailability: (journeyId: string, fromId: string, toId: string) => void
   reset: () => void
 }
 
-export const useAvailabilityStore = create<AvailabilityStore>((set) => ({
+export const useAvailabilityStore = create<AvailabilityStore>((set, get) => ({
   stations: [],
   schedules: [],
   journeys: [],
+  coachTypes: [],
   loadingMeta: true,
   availability: [],
 
   load: async (date) => {
     set({ loadingMeta: true })
     try {
-      const [stations, schedules, journeys] = await Promise.all([
+      const [stations, schedules, journeys, rawCoachTypes] = await Promise.all([
         stationService.list(),
         scheduleService.listByRoute(ROUTE_ID),
         journeyService.listByDate(date),
+        coachService.listTypes(),
       ])
-      set({ stations, schedules, journeys })
+
+      const coachTypes: EnrichedCoachType[] = rawCoachTypes.map((ct) => {
+        const ui = COACH_TYPE_UI[ct.name] ?? {
+          description: '',
+          badge: ct.name.slice(0, 3),
+          color: 'gray',
+        }
+        return {
+          id: ct.id,
+          name: ct.name,
+          unreserved: !ct.is_reserved,
+          fareMultiplier: parseFloat(ct.fare_multiplier),
+          ...ui,
+        }
+      })
+
+      set({ stations, schedules, journeys, coachTypes })
     } catch (err) {
       console.error(err)
     } finally {
@@ -51,7 +67,8 @@ export const useAvailabilityStore = create<AvailabilityStore>((set) => ({
     }
   },
 
-  loadClassAvailability: (journeyId, fromId, toId, coachTypes) => {
+  loadClassAvailability: (journeyId, fromId, toId) => {
+    const { coachTypes } = get()
     set({
       availability: coachTypes.map((ct) => ({ coachTypeId: ct.id, availableSeats: 0, loading: true })),
     })
@@ -84,5 +101,6 @@ export const useAvailabilityStore = create<AvailabilityStore>((set) => ({
     })
   },
 
-  reset: () => set({ stations: [], schedules: [], journeys: [], loadingMeta: true, availability: [] }),
+  reset: () =>
+    set({ stations: [], schedules: [], journeys: [], coachTypes: [], loadingMeta: true, availability: [] }),
 }))

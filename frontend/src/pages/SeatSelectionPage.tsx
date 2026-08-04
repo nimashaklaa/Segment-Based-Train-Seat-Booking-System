@@ -14,7 +14,6 @@ import { useSeatSelectionStore } from '../stores/useSeatSelectionStore'
 import { seatService } from '../services/seatService'
 import type { Seat, Booking, SeatSelectionLocationState as LocationState } from '../types'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
-import { TRAIN_NAMES } from '../constants/train'
 
 export default function SeatSelectionPage() {
   const navigate = useNavigate()
@@ -41,7 +40,7 @@ export default function SeatSelectionPage() {
   }, [])
 
   if (!state) return null
-  const { journeyId, fromId, toId, departureTime, trainNumber, passengers } = state
+  const { journeyId, fromId, toId, departureTime, trainNumber, trainName, passengers } = state
 
   const fromStation = stations.find((s) => s.id === fromId)
   const toStation = stations.find((s) => s.id === toId)
@@ -100,7 +99,7 @@ export default function SeatSelectionPage() {
         ),
       )
       navigate('/booking-success', {
-        state: { booking: bookings[0] as Booking, fromStation, toStation, departureTime, trainNumber },
+        state: { booking: bookings[0] as Booking, fromStation, toStation, departureTime, trainNumber, trainName },
       })
     } catch (err: unknown) {
       setBookingError(err instanceof Error ? err.message : 'Booking failed')
@@ -125,7 +124,7 @@ export default function SeatSelectionPage() {
           </div>
           {trainNumber && (
             <span className="text-xs text-blue-200">
-              #{trainNumber} {TRAIN_NAMES[trainNumber] ?? ''} · Dep.{' '}
+              #{trainNumber} {trainName} · Dep.{' '}
               {fmtDepartureTime(departureTime)}
             </span>
           )}

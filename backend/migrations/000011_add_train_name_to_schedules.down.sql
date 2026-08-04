@@ -1,0 +1,1 @@
+ALTER TABLE train_schedules DROP COLUMN IF EXISTS train_name;

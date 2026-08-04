@@ -76,7 +76,7 @@ func (s *Service) UpdateRoute(ctx context.Context, id, name, code, origin, desti
 
 func (s *Service) ListSchedules(ctx context.Context) ([]db.TrainSchedule, error) {
 	rows, err := s.rawDB.QueryContext(ctx,
-		`SELECT id, train_number, route_id, departure_time FROM train_schedules ORDER BY departure_time`)
+		`SELECT id, train_number, train_name, route_id, departure_time FROM train_schedules ORDER BY departure_time`)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (s *Service) ListSchedules(ctx context.Context) ([]db.TrainSchedule, error)
 	var schedules []db.TrainSchedule
 	for rows.Next() {
 		var sc db.TrainSchedule
-		if err := rows.Scan(&sc.ID, &sc.TrainNumber, &sc.RouteID, &sc.DepartureTime); err != nil {
+		if err := rows.Scan(&sc.ID, &sc.TrainNumber, &sc.TrainName, &sc.RouteID, &sc.DepartureTime); err != nil {
 			return nil, err
 		}
 		schedules = append(schedules, sc)
@@ -95,7 +95,7 @@ func (s *Service) ListSchedules(ctx context.Context) ([]db.TrainSchedule, error)
 	return schedules, nil
 }
 
-func (s *Service) CreateSchedule(ctx context.Context, trainNumber, routeID, departureTimeStr string) (db.TrainSchedule, error) {
+func (s *Service) CreateSchedule(ctx context.Context, trainNumber, trainName, routeID, departureTimeStr string) (db.TrainSchedule, error) {
 	if trainNumber == "" || routeID == "" || departureTimeStr == "" {
 		return db.TrainSchedule{}, fmt.Errorf("train_number, route_id and departure_time are required: %w", ErrInvalid)
 	}
@@ -103,15 +103,14 @@ func (s *Service) CreateSchedule(ctx context.Context, trainNumber, routeID, depa
 	if err != nil {
 		return db.TrainSchedule{}, fmt.Errorf("departure_time must be HH:MM: %w", ErrInvalid)
 	}
-	// Store as a fixed date with just the time component
 	depTimeUTC := time.Date(1970, 1, 1, depTime.Hour(), depTime.Minute(), 0, 0, time.UTC)
 	var sc db.TrainSchedule
 	err = s.rawDB.QueryRowContext(ctx,
-		`INSERT INTO train_schedules (train_number, route_id, departure_time)
-		 VALUES ($1, $2, $3)
-		 RETURNING id, train_number, route_id, departure_time`,
-		trainNumber, routeID, depTimeUTC,
-	).Scan(&sc.ID, &sc.TrainNumber, &sc.RouteID, &sc.DepartureTime)
+		`INSERT INTO train_schedules (train_number, train_name, route_id, departure_time)
+		 VALUES ($1, $2, $3, $4)
+		 RETURNING id, train_number, train_name, route_id, departure_time`,
+		trainNumber, trainName, routeID, depTimeUTC,
+	).Scan(&sc.ID, &sc.TrainNumber, &sc.TrainName, &sc.RouteID, &sc.DepartureTime)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return db.TrainSchedule{}, fmt.Errorf("a schedule with this train number already exists: %w", ErrConflict)
@@ -121,7 +120,7 @@ func (s *Service) CreateSchedule(ctx context.Context, trainNumber, routeID, depa
 	return sc, nil
 }
 
-func (s *Service) UpdateSchedule(ctx context.Context, id, trainNumber, departureTimeStr string) (db.TrainSchedule, error) {
+func (s *Service) UpdateSchedule(ctx context.Context, id, trainNumber, trainName, departureTimeStr string) (db.TrainSchedule, error) {
 	if trainNumber == "" || departureTimeStr == "" {
 		return db.TrainSchedule{}, fmt.Errorf("train_number and departure_time are required: %w", ErrInvalid)
 	}
@@ -132,10 +131,10 @@ func (s *Service) UpdateSchedule(ctx context.Context, id, trainNumber, departure
 	depTimeUTC := time.Date(1970, 1, 1, depTime.Hour(), depTime.Minute(), 0, 0, time.UTC)
 	var sc db.TrainSchedule
 	err = s.rawDB.QueryRowContext(ctx,
-		`UPDATE train_schedules SET train_number=$1, departure_time=$2 WHERE id=$3
-		 RETURNING id, train_number, route_id, departure_time`,
-		trainNumber, depTimeUTC, id,
-	).Scan(&sc.ID, &sc.TrainNumber, &sc.RouteID, &sc.DepartureTime)
+		`UPDATE train_schedules SET train_number=$1, train_name=$2, departure_time=$3 WHERE id=$4
+		 RETURNING id, train_number, train_name, route_id, departure_time`,
+		trainNumber, trainName, depTimeUTC, id,
+	).Scan(&sc.ID, &sc.TrainNumber, &sc.TrainName, &sc.RouteID, &sc.DepartureTime)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return db.TrainSchedule{}, fmt.Errorf("schedule: %w", ErrNotFound)

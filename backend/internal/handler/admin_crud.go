@@ -71,6 +71,7 @@ func (h *Handler) ListAllSchedules(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		TrainNumber   string `json:"train_number"`
+		TrainName     string `json:"train_name"`
 		RouteID       string `json:"route_id"`
 		DepartureTime string `json:"departure_time"` // "HH:MM"
 	}
@@ -78,7 +79,7 @@ func (h *Handler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	sc, err := h.svc.CreateSchedule(r.Context(), body.TrainNumber, body.RouteID, body.DepartureTime)
+	sc, err := h.svc.CreateSchedule(r.Context(), body.TrainNumber, body.TrainName, body.RouteID, body.DepartureTime)
 	if err != nil {
 		mapServiceError(w, err)
 		return
@@ -90,13 +91,14 @@ func (h *Handler) UpdateSchedule(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var body struct {
 		TrainNumber   string `json:"train_number"`
+		TrainName     string `json:"train_name"`
 		DepartureTime string `json:"departure_time"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	sc, err := h.svc.UpdateSchedule(r.Context(), id, body.TrainNumber, body.DepartureTime)
+	sc, err := h.svc.UpdateSchedule(r.Context(), id, body.TrainNumber, body.TrainName, body.DepartureTime)
 	if err != nil {
 		mapServiceError(w, err)
 		return

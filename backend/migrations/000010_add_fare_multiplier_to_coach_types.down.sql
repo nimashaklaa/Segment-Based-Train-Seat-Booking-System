@@ -1,0 +1,1 @@
+ALTER TABLE coach_types DROP COLUMN IF EXISTS fare_multiplier;

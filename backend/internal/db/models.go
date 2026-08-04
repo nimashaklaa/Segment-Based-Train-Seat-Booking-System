@@ -32,10 +32,11 @@ type Coach struct {
 }
 
 type CoachType struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	IsReserved   bool   `json:"is_reserved"`
-	SeatCapacity int32  `json:"seat_capacity"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	IsReserved     bool   `json:"is_reserved"`
+	SeatCapacity   int32  `json:"seat_capacity"`
+	FareMultiplier string `json:"fare_multiplier"`
 }
 
 type Route struct {
@@ -72,6 +73,7 @@ type TrainJourney struct {
 type TrainSchedule struct {
 	ID            string    `json:"id"`
 	TrainNumber   string    `json:"train_number"`
+	TrainName     string    `json:"train_name"`
 	RouteID       string    `json:"route_id"`
 	DepartureTime time.Time `json:"departure_time"`
 }

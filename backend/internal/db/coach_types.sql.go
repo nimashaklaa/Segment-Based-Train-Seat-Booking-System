@@ -10,7 +10,7 @@ import (
 )
 
 const getCoachType = `-- name: GetCoachType :one
-SELECT id, name, is_reserved, seat_capacity
+SELECT id, name, is_reserved, seat_capacity, fare_multiplier
 FROM coach_types
 WHERE id = $1
 `
@@ -23,12 +23,13 @@ func (q *Queries) GetCoachType(ctx context.Context, id string) (CoachType, error
 		&i.Name,
 		&i.IsReserved,
 		&i.SeatCapacity,
+		&i.FareMultiplier,
 	)
 	return i, err
 }
 
 const listCoachTypes = `-- name: ListCoachTypes :many
-SELECT id, name, is_reserved, seat_capacity
+SELECT id, name, is_reserved, seat_capacity, fare_multiplier
 FROM coach_types
 ORDER BY name
 `
@@ -47,6 +48,7 @@ func (q *Queries) ListCoachTypes(ctx context.Context) ([]CoachType, error) {
 			&i.Name,
 			&i.IsReserved,
 			&i.SeatCapacity,
+			&i.FareMultiplier,
 		); err != nil {
 			return nil, err
 		}

@@ -10,7 +10,7 @@ import (
 )
 
 const getSchedule = `-- name: GetSchedule :one
-SELECT id, train_number, route_id, departure_time
+SELECT id, train_number, train_name, route_id, departure_time
 FROM train_schedules
 WHERE id = $1
 `
@@ -21,6 +21,7 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (TrainSchedule, er
 	err := row.Scan(
 		&i.ID,
 		&i.TrainNumber,
+		&i.TrainName,
 		&i.RouteID,
 		&i.DepartureTime,
 	)
@@ -28,7 +29,7 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (TrainSchedule, er
 }
 
 const getScheduleByTrainNumber = `-- name: GetScheduleByTrainNumber :one
-SELECT id, train_number, route_id, departure_time
+SELECT id, train_number, train_name, route_id, departure_time
 FROM train_schedules
 WHERE train_number = $1
 `
@@ -39,6 +40,7 @@ func (q *Queries) GetScheduleByTrainNumber(ctx context.Context, trainNumber stri
 	err := row.Scan(
 		&i.ID,
 		&i.TrainNumber,
+		&i.TrainName,
 		&i.RouteID,
 		&i.DepartureTime,
 	)
@@ -46,7 +48,7 @@ func (q *Queries) GetScheduleByTrainNumber(ctx context.Context, trainNumber stri
 }
 
 const listSchedulesByRoute = `-- name: ListSchedulesByRoute :many
-SELECT id, train_number, route_id, departure_time
+SELECT id, train_number, train_name, route_id, departure_time
 FROM train_schedules
 WHERE route_id = $1
 ORDER BY departure_time
@@ -64,6 +66,7 @@ func (q *Queries) ListSchedulesByRoute(ctx context.Context, routeID string) ([]T
 		if err := rows.Scan(
 			&i.ID,
 			&i.TrainNumber,
+			&i.TrainName,
 			&i.RouteID,
 			&i.DepartureTime,
 		); err != nil {

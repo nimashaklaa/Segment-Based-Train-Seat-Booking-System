@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 import { useAvailabilityStore } from '../stores/useAvailabilityStore'
 import { estimatedArrival, fmtDepartureTime } from '../utils/time'
-import { TRAIN_NAMES, COACH_TYPES } from '../constants/train'
 import type { AvailabilityLocationState as LocationState } from '../types'
 
 export default function AvailabilityPage() {
@@ -21,8 +20,17 @@ export default function AvailabilityPage() {
   const location = useLocation()
   const state = location.state as LocationState | null
 
-  const { stations, schedules, journeys, loadingMeta, availability, load, loadClassAvailability, reset } =
-    useAvailabilityStore()
+  const {
+    stations,
+    schedules,
+    journeys,
+    coachTypes,
+    loadingMeta,
+    availability,
+    load,
+    loadClassAvailability,
+    reset,
+  } = useAvailabilityStore()
 
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null)
 
@@ -37,7 +45,7 @@ export default function AvailabilityPage() {
 
   useEffect(() => {
     if (!selectedJourneyId || !state) return
-    loadClassAvailability(selectedJourneyId, state.fromId, state.toId, COACH_TYPES)
+    loadClassAvailability(selectedJourneyId, state.fromId, state.toId)
   }, [selectedJourneyId])
 
   if (!state) return null
@@ -61,6 +69,7 @@ export default function AvailabilityPage() {
   const selectedJourney = journeysWithSchedule.find((j) => j.id === selectedJourneyId)
   const departureTime = selectedJourney?.schedule?.departure_time ?? ''
   const trainNumber = selectedJourney?.schedule?.train_number ?? ''
+  const trainName = selectedJourney?.schedule?.train_name ?? ''
 
   const boardTime =
     departureTime && fromStation
@@ -73,7 +82,16 @@ export default function AvailabilityPage() {
 
   function handleSelect(coachTypeId: string) {
     navigate('/seats', {
-      state: { journeyId: selectedJourneyId, fromId, toId, coachTypeId, departureTime, trainNumber, passengers },
+      state: {
+        journeyId: selectedJourneyId,
+        fromId,
+        toId,
+        coachTypeId,
+        departureTime,
+        trainNumber,
+        trainName,
+        passengers,
+      },
     })
   }
 
@@ -176,6 +194,7 @@ export default function AvailabilityPage() {
               {journeysWithSchedule.map((j) => {
                 const dep = j.schedule?.departure_time ?? ''
                 const num = j.schedule?.train_number ?? ''
+                const name = j.schedule?.train_name ?? ''
                 const board =
                   dep && fromStation
                     ? estimatedArrival(dep, fromStation.distance_from_origin_km)
@@ -212,7 +231,7 @@ export default function AvailabilityPage() {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900 text-sm">
-                          {TRAIN_NAMES[num] ?? `Train ${num}`}
+                          {name || `Train ${num}`}
                         </p>
                         <p className="text-xs text-gray-400">
                           #{num} · Departs {fmtDepartureTime(dep)}
@@ -266,7 +285,7 @@ export default function AvailabilityPage() {
             </h2>
 
             <div className="space-y-3">
-              {COACH_TYPES.map((ct, i) => {
+              {coachTypes.map((ct, i) => {
                 const avail = availability[i] ?? { availableSeats: 0, loading: true }
                 const farePerSeat = baseFare * ct.fareMultiplier
                 const totalFare = farePerSeat * passengers
@@ -299,7 +318,7 @@ export default function AvailabilityPage() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <p className="font-semibold text-gray-900 text-sm">{ct.label}</p>
+                          <p className="font-semibold text-gray-900 text-sm">{ct.name}</p>
                           {!avail.loading &&
                             (soldOut ? (
                               <span className="flex items-center gap-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">

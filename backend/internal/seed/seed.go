@@ -95,20 +95,21 @@ func Run(db *sql.DB) error {
 
 	log.Println("[seed] Seeding coach types...")
 	coachTypes := []struct {
-		id       string
-		name     string
-		reserved bool
-		capacity int
+		id             string
+		name           string
+		reserved       bool
+		capacity       int
+		fareMultiplier float64
 	}{
-		{coachTypeFirstID, "First Class", true, 24},
-		{coachTypeSecondID, "Second Class", true, 30},
-		{coachTypeThirdID, "Third Class", false, 0},
+		{coachTypeFirstID, "First Class", true, 24, 1.8},
+		{coachTypeSecondID, "Second Class", true, 30, 1.2},
+		{coachTypeThirdID, "Third Class", false, 0, 1.0},
 	}
 	for _, ct := range coachTypes {
-		if err := exec(`INSERT INTO coach_types (id, name, is_reserved, seat_capacity)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (id) DO NOTHING`,
-			ct.id, ct.name, ct.reserved, ct.capacity); err != nil {
+		if err := exec(`INSERT INTO coach_types (id, name, is_reserved, seat_capacity, fare_multiplier)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (id) DO UPDATE SET fare_multiplier = EXCLUDED.fare_multiplier`,
+			ct.id, ct.name, ct.reserved, ct.capacity, ct.fareMultiplier); err != nil {
 			return fmt.Errorf("coach type %s: %w", ct.name, err)
 		}
 	}
@@ -171,18 +172,19 @@ func Run(db *sql.DB) error {
 	type scheduleRow struct {
 		id     string
 		number string
+		name   string
 		depart time.Time
 	}
 	schedules := []scheduleRow{
-		{scheduleID, "1005", time.Date(0, 1, 1, 5, 55, 0, 0, time.UTC)},
-		{schedulePodiID, "1015", time.Date(0, 1, 1, 9, 45, 0, 0, time.UTC)},
-		{scheduleNightID, "1007", time.Date(0, 1, 1, 21, 30, 0, 0, time.UTC)},
+		{scheduleID, "1005", "Udarata Menike", time.Date(0, 1, 1, 5, 55, 0, 0, time.UTC)},
+		{schedulePodiID, "1015", "Podi Menike", time.Date(0, 1, 1, 9, 45, 0, 0, time.UTC)},
+		{scheduleNightID, "1007", "Night Mail", time.Date(0, 1, 1, 21, 30, 0, 0, time.UTC)},
 	}
 	for _, sch := range schedules {
-		if err := exec(`INSERT INTO train_schedules (id, train_number, route_id, departure_time)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (train_number) DO NOTHING`,
-			sch.id, sch.number, routeID, sch.depart); err != nil {
+		if err := exec(`INSERT INTO train_schedules (id, train_number, train_name, route_id, departure_time)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (train_number) DO UPDATE SET train_name = EXCLUDED.train_name`,
+			sch.id, sch.number, sch.name, routeID, sch.depart); err != nil {
 			return fmt.Errorf("schedule %s: %w", sch.number, err)
 		}
 	}
