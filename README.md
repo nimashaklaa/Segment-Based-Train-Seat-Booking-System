@@ -46,6 +46,88 @@ That's it. Docker Compose will:
 
 ---
 
+## Booking Flow
+
+This is the end-to-end journey a passenger takes from the home page to a confirmed ticket.
+
+### Step 1 — Search
+
+On the home page the passenger selects:
+- **From** station (e.g. Colombo Fort)
+- **To** station (e.g. Kandy)
+- **Date** of travel
+- **Number of passengers**
+
+Clicking **Search** navigates to the availability page.
+
+### Step 2 — Select a Train
+
+The availability page shows all journeys running on that date that call at both stations in the correct order. Each row shows the train name, number, departure time, and whether seats are available. The passenger clicks **Select** on their preferred train.
+
+### Step 3 — Select a Class
+
+Below the train list, the system shows coach classes available on that train (e.g. First Class, Second Class, Observation Saloon). For each class it displays the number of available seats and the fare per seat for the chosen segment. The passenger clicks **Book** on their preferred class.
+
+### Step 4 — Pick a Seat
+
+The passenger is taken to the seat selection page. The seat map shows every seat in the chosen coach colour-coded:
+
+| Colour | Meaning |
+|---|---|
+| White | Available for this segment |
+| Blue | Selected by you |
+| Gray | Already booked for an overlapping segment |
+
+The passenger clicks one or more seats (up to the number of passengers searched) and sees the total fare update in real time. The seat map refreshes automatically every 5 seconds so stale availability from other concurrent users is reflected without a page reload.
+
+### Step 5 — Enter Details and Confirm
+
+The passenger fills in their name and email address and clicks **Confirm Booking**. The backend attempts to INSERT the booking inside a PostgreSQL EXCLUSION constraint — if two people click at the same moment, exactly one succeeds and the other receives a `409 Conflict` response.
+
+On success:
+- The booking is confirmed and a **confirmation email** is sent to the passenger's address (visible in MailHog at `http://localhost:8025`).
+- The passenger receives a booking reference ID.
+
+On conflict (seat taken at the last moment):
+- An amber warning is shown.
+- The passenger can click **Join Waitlist** — their email is saved and they will be notified automatically if the seat becomes free through a cancellation.
+
+### Step 6 — View or Cancel a Booking
+
+From **My Ticket** in the header, the passenger enters their booking reference ID and email to retrieve their booking details. They can also cancel from this page, which frees the seat and triggers an automatic waitlist notification to the next person in the queue.
+
+---
+
+## Admin Panel
+
+The admin panel is not linked from the public site. Navigate directly to:
+
+```
+http://localhost:5173/admin
+```
+
+Log in with the credentials set in your `.env` file:
+
+```
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin      ← change this to something strong
+```
+
+> The admin panel issues a signed JWT on login. The token is valid for 8 hours. All `/admin/*` API routes require this token — they return `401 Unauthorized` without it.
+
+Once logged in, the admin panel provides:
+
+| Tab | What you can do |
+|---|---|
+| **Dashboard** | Live seat occupancy and revenue across all active journeys |
+| **Stations** | Add or rename stations on the Colombo Fort–Badulla line |
+| **Routes** | Define or edit route segments between station pairs |
+| **Schedules** | Create recurring train schedules (train name, number, departure time) |
+| **Journeys** | Instantiate a schedule into a specific date's run; update journey status (scheduled / departed / cancelled) |
+| **Coaches** | Add coaches to a train, set coach type (class), manage seating capacity |
+
+---
+
 ## Core Design Decisions
 
 ### 1. Segment Occupancy Model
