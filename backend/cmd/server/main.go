@@ -141,6 +141,7 @@ func main() {
 	r.Put("/admin/journeys/{id}/status", h.UpdateJourneyStatus)
 	r.Get("/admin/coaches", h.ListAllCoaches)
 	r.Get("/admin/coach-types", h.ListCoachTypes)
+	r.Put("/admin/coach-types/{id}", h.UpdateCoachType)
 	r.Post("/admin/coaches", h.CreateCoach)
 	r.Delete("/admin/coaches/{id}", h.DeleteCoach)
 

@@ -11,6 +11,7 @@ interface CoachesStore {
   setError: (e: string) => void
   load: () => Promise<void>
   create: (coachNumber: string, coachTypeId: string) => Promise<void>
+  updateType: (id: string, fareMultiplier: number, seatCapacity: number) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -39,6 +40,20 @@ export const useCoachesStore = create<CoachesStore>((set, get) => ({
     set({ saving: true, error: '' })
     try {
       await coachService.create(coachNumber, coachTypeId)
+      await get().load()
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err.message : 'Save failed'
+      set({ error: e })
+      throw err
+    } finally {
+      set({ saving: false })
+    }
+  },
+
+  updateType: async (id, fareMultiplier, seatCapacity) => {
+    set({ saving: true, error: '' })
+    try {
+      await coachService.updateType(id, fareMultiplier, seatCapacity)
       await get().load()
     } catch (err: unknown) {
       const e = err instanceof Error ? err.message : 'Save failed'

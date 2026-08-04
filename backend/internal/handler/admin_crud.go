@@ -197,6 +197,24 @@ func (h *Handler) CreateCoach(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, c)
 }
 
+func (h *Handler) UpdateCoachType(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var body struct {
+		FareMultiplier float64 `json:"fare_multiplier"`
+		SeatCapacity   int     `json:"seat_capacity"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	ct, err := h.svc.UpdateCoachType(r.Context(), id, body.FareMultiplier, body.SeatCapacity)
+	if err != nil {
+		mapServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, ct)
+}
+
 func (h *Handler) DeleteCoach(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.svc.DeleteCoach(r.Context(), id); err != nil {

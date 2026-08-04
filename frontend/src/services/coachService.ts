@@ -12,5 +12,11 @@ export const coachService = {
       body: JSON.stringify({ coach_number: coachNumber, coach_type_id: coachTypeId }),
     }),
 
+  updateType: (id: string, fareMultiplier: number, seatCapacity: number) =>
+    request<CoachType>(`/admin/coach-types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ fare_multiplier: fareMultiplier, seat_capacity: seatCapacity }),
+    }),
+
   delete: (id: string) => request<void>(`/admin/coaches/${id}`, { method: 'DELETE' }),
 }

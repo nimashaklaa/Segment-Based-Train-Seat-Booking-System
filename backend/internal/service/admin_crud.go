@@ -258,7 +258,7 @@ func (s *Service) ListAllCoaches(ctx context.Context) ([]CoachRow, error) {
 
 func (s *Service) ListCoachTypes(ctx context.Context) ([]db.CoachType, error) {
 	rows, err := s.rawDB.QueryContext(ctx,
-		`SELECT id, name, is_reserved, seat_capacity FROM coach_types ORDER BY name`)
+		`SELECT id, name, is_reserved, seat_capacity, fare_multiplier FROM coach_types ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +266,7 @@ func (s *Service) ListCoachTypes(ctx context.Context) ([]db.CoachType, error) {
 	var types []db.CoachType
 	for rows.Next() {
 		var ct db.CoachType
-		if err := rows.Scan(&ct.ID, &ct.Name, &ct.IsReserved, &ct.SeatCapacity); err != nil {
+		if err := rows.Scan(&ct.ID, &ct.Name, &ct.IsReserved, &ct.SeatCapacity, &ct.FareMultiplier); err != nil {
 			return nil, err
 		}
 		types = append(types, ct)
@@ -275,6 +275,22 @@ func (s *Service) ListCoachTypes(ctx context.Context) ([]db.CoachType, error) {
 		types = []db.CoachType{}
 	}
 	return types, nil
+}
+
+func (s *Service) UpdateCoachType(ctx context.Context, id string, fareMultiplier float64, seatCapacity int) (db.CoachType, error) {
+	var ct db.CoachType
+	err := s.rawDB.QueryRowContext(ctx,
+		`UPDATE coach_types SET fare_multiplier = $1, seat_capacity = $2 WHERE id = $3
+		 RETURNING id, name, is_reserved, seat_capacity, fare_multiplier`,
+		fareMultiplier, seatCapacity, id,
+	).Scan(&ct.ID, &ct.Name, &ct.IsReserved, &ct.SeatCapacity, &ct.FareMultiplier)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return db.CoachType{}, fmt.Errorf("coach type: %w", ErrNotFound)
+		}
+		return db.CoachType{}, err
+	}
+	return ct, nil
 }
 
 func (s *Service) CreateCoach(ctx context.Context, coachNumber, coachTypeID string) (db.Coach, error) {
