@@ -38,7 +38,7 @@ Sri Lanka Railways' reserved coaches are frequently under-occupied. A seat booke
 **Prerequisites:** Docker and Docker Compose installed.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/nimashaklaa/Segment-Based-Train-Seat-Booking-System
 cd segment-based-train-seat
 
 cp .env.example .env
