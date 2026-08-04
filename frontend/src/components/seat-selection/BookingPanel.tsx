@@ -33,7 +33,7 @@ export default function BookingPanel({
   onJoinWaitlist,
 }: Props) {
   return (
-    <div className="lg:w-68 shrink-0">
+    <div className="lg:w-72 shrink-0">
       <div className="bg-white border border-gray-200 rounded overflow-hidden sticky top-16">
         <div className="bg-blue-700 text-white px-4 py-3">
           <p className="font-semibold text-sm">Passenger Details</p>
@@ -91,7 +91,7 @@ export default function BookingPanel({
                 <div>
                   <p className="text-xs font-semibold text-green-800">You're on the waitlist!</p>
                   <p className="text-xs text-green-700 mt-0.5">
-                    We'll email you at <span className="font-medium">{passengerEmail}</span> if a seat opens up for this segment.
+                    We'll email you at <span className="font-medium break-all">{passengerEmail}</span> if a seat opens up for this segment.
                   </p>
                 </div>
               </div>

@@ -45,7 +45,7 @@ export default function SeatMap({
             </button>
           )}
         </div>
-        <div className="flex items-center gap-4 text-xs text-gray-500">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-green-50 border border-green-200 inline-block" />
             Available
@@ -88,7 +88,7 @@ export default function SeatMap({
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                   {coach.coach_number}
                 </p>
-                <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 gap-1.5">
+                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5">
                   {cs.map((seat) => {
                     const isAvailable = availableSet.has(seat.id)
                     const isSelected = selectedSeats.some((s) => s.id === seat.id)

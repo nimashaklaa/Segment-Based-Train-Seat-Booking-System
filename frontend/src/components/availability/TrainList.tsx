@@ -52,7 +52,7 @@ export default function TrainList({
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+      <div className="rounded-lg border border-gray-200 overflow-hidden shadow-sm overflow-x-auto">
         {loading ? (
           <div className="bg-white p-12 flex flex-col items-center gap-3">
             <Loader2 size={22} className="animate-spin text-blue-600" />

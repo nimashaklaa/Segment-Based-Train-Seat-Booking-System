@@ -4,6 +4,21 @@ A booking system for Sri Lanka's Colombo Fort–Badulla line that allows a singl
 
 ---
 
+## Key Highlights
+
+| # | What was built | Why it matters |
+|---|---|---|
+| **1** | **Segment-based occupancy** — half-open integer intervals `[board, alight)` per seat per journey | One physical seat can be sold to multiple passengers on non-overlapping legs; no seat sits empty unnecessarily |
+| **2** | **PostgreSQL EXCLUSION constraint** for double-booking prevention | Concurrent INSERT attempts are serialized at the database level — no application locks, no race conditions, guaranteed correct |
+| **3** | **Seat map visualization** with real-time 5-second refresh | Passengers see live availability colour-coded per seat; stale data from concurrent users is reflected without a page reload |
+| **4** | **Waitlisting** with automatic email notification | If a booking conflict occurs at checkout, the passenger can join a waitlist and is notified automatically on cancellation |
+| **5** | **Admin panel** (JWT-protected) with live occupancy & revenue dashboard | Gives the department visibility into seat utilization and earnings across all active journeys |
+| **6** | **Fully configurable** — stations, coaches, seats per coach, fare rate, class multipliers | No hardcoded magic numbers; the department can extend the route or add coaches without code changes |
+| **7** | **One-command setup** via Docker Compose | Runs from a clean machine with `docker compose up --build`; migrations, seeding, backend, frontend, and MailHog all start automatically |
+| **8** | **Distance-based fare with coach-class multiplier** | Passengers pay only for the km they travel; First Class / Second Class multipliers are stored per coach type and configurable |
+
+---
+
 ## Entity-Relationship Diagram
 
 ![ER Diagram](images/schedule.drawio.png)
@@ -13,6 +28,8 @@ A booking system for Sri Lanka's Colombo Fort–Badulla line that allows a singl
 ## The Problem
 
 Sri Lanka Railways' reserved coaches are frequently under-occupied. A seat booked Colombo Fort → Kandy sits empty Kandy → Badulla, because the current system can't resell it once the train departs. To compensate, the department prices reserved seats at a premium — passengers pay for dead legs they don't use. This system removes that constraint.
+
+> **Core insight:** The pricing premium exists solely because seats can't be resold mid-journey. By making segments independently bookable, the department can reduce fares to reflect actual distance travelled and recover lost revenue from seats that previously went empty.
 
 ---
 
@@ -92,6 +109,8 @@ On conflict (seat taken at the last moment):
 - An amber warning is shown.
 - The passenger can click **Join Waitlist** — their email is saved and they will be notified automatically if the seat becomes free through a cancellation.
 
+> **No double-booking is possible.** The EXCLUSION constraint is enforced at the database level — even under the highest concurrency, exactly one booking wins per seat per segment.
+
 ### Step 6 — View or Cancel a Booking
 
 From **My Ticket** in the header, the passenger enters their booking reference ID and email to retrieve their booking details. They can also cancel from this page, which frees the seat and triggers an automatic waitlist notification to the next person in the queue.
@@ -143,7 +162,9 @@ Half-open ranges make adjacent segments work correctly by design: `[1, 7)` and `
 
 ### 2. Concurrency — PostgreSQL EXCLUSION Constraint
 
-The hardest problem is guaranteeing no double-bookings when two requests arrive simultaneously. The solution is a **database-level EXCLUSION constraint** using PostgreSQL's native range types:
+> **This is the hardest correctness problem in the system.** Two passengers booking the same seat for the same segment at the exact same millisecond must not both succeed.
+
+The solution is a **database-level EXCLUSION constraint** using PostgreSQL's native range types:
 
 ```sql
 CONSTRAINT no_overlapping_seat_bookings EXCLUDE USING gist (

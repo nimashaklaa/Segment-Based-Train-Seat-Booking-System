@@ -36,10 +36,10 @@ export default function RouteTimeline({
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
       {/* Board / Alight header */}
-      <div className="px-6 py-5 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+      <div className="px-4 sm:px-6 py-5 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
         {/* Departure */}
         <div>
-          <p className="text-2xl font-bold font-mono tracking-tight text-gray-900">{boardTime}</p>
+          <p className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-gray-900">{boardTime}</p>
           <p className="font-semibold text-gray-800 mt-1 text-sm">{fromStation.name}</p>
           <span className="inline-block mt-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
             Board
@@ -101,7 +101,7 @@ export default function RouteTimeline({
       )}
 
       {/* Footer */}
-      <div className="border-t border-gray-100 bg-gray-50 px-6 py-3 flex items-center justify-between">
+      <div className="border-t border-gray-100 bg-gray-50 px-4 sm:px-6 py-3 flex items-center justify-between">
         <span className="text-xs text-gray-400">
           {distKm} km · ~{durationStr} journey
         </span>

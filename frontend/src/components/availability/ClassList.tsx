@@ -36,7 +36,7 @@ export default function ClassList({
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+      <div className="rounded-lg border border-gray-200 overflow-hidden shadow-sm overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">

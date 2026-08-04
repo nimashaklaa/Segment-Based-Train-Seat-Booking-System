@@ -25,7 +25,7 @@ export default function JourneySummaryBar({
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg mb-6 shadow-sm">
-      <div className="px-6 py-4 flex flex-wrap items-center gap-6">
+      <div className="px-4 sm:px-6 py-4 flex flex-wrap items-center gap-4">
         {/* Route */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="min-w-0">
@@ -51,10 +51,11 @@ export default function JourneySummaryBar({
         </div>
 
         {/* Meta */}
-        <div className="flex items-center gap-5 text-sm text-gray-500 border-l border-gray-100 pl-6">
+        <div className="flex items-center gap-4 text-sm text-gray-500">
           <div className="flex items-center gap-1.5">
             <Calendar size={13} className="text-gray-400 shrink-0" />
-            <span className="whitespace-nowrap">{formattedDate}</span>
+            <span className="hidden sm:inline">{formattedDate}</span>
+            <span className="sm:hidden">{new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Users size={13} className="text-gray-400 shrink-0" />
