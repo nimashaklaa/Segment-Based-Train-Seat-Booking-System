@@ -101,6 +101,9 @@ func main() {
 		"http://localhost:5173": true,
 		"http://localhost:5174": true,
 	}
+	if extraOrigin := os.Getenv("ALLOWED_ORIGIN"); extraOrigin != "" {
+		allowedOrigins[extraOrigin] = true
+	}
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
@@ -158,6 +161,8 @@ func main() {
 		r.Post("/admin/coaches", h.CreateCoach)
 		r.Delete("/admin/coaches/{id}", h.DeleteCoach)
 	})
+
+	startJourneyScheduler(database)
 
 	log.Println("Server running on :3000")
 	log.Fatal(http.ListenAndServe(":3000", r))
